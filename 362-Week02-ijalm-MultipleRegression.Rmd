@@ -1,0 +1,510 @@
+---
+title: 'Week 2: #ijalm and Multiple Regression'
+#subtitle: 'Ch. 1: Introduction to Data'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+#date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+class: inverse
+
+## Learning objectives
+
+By the end of this section, you should be able to answer the following questions:
+
+1. What does #ijalm mean?
+2. How do "Stat 101" techniques differ from regression?
+3. How can we extend the regression model to multiple variables?
+
+---
+
+## It's just a linear model
+
+![](ijalm.png)
+
+.small[_Disclaimer_: When this was written, Daniela Witten was the rotating curator of @WomenInStat. The image features Christina Knudson, who was curator when I took the screenshot.]
+
+---
+class: inverse
+
+## It's just a linear model?
+
+__Example__: Fifty-five undergraduates at Duke University were asked about their GPA, number of hours they study at night, number of nights they go out, and their gender. __Does gender affect the GPA of students at Duke?__
+
+--
+
+"Stat 101" answer: do a two-sample $t$-test!
+
+--
+
+Let $\mu_1$ be the mean GPA of all female students at Duke University, and let $\mu_2$ be the mean GPA of all male students.
+
+$$H_0: \mu_1 = \mu_2$$
+
+$$H_A: \mu_1 \ne \mu_2$$
+
+---
+class: inverse
+
+## The two-sample t-test
+
+Next, load the data, calculate a test statistic and perform the test.
+
+```{r, warning=FALSE, message=FALSE}
+# The data "lives" in the openintro library
+library(openintro)
+data(gpa)
+
+# Use the mosaic library for easy syntax
+library(mosaic)
+favstats(~gpa|gender, data=gpa)
+```
+
+On average, the females have a higher GPA than the males (3.61 > 3.56). What else do you notice about this data?
+
+---
+class: inverse
+
+## The two-sample t-test
+
+```{r}
+gpa %>% ggplot(aes(x=gender, y=gpa)) + 
+  geom_boxplot(aes(fill=gender)) + 
+  labs(x='Gender', y='GPA', fill='Gender') + 
+  scale_fill_brewer(palette='Paired') +
+  guides(fill=FALSE)
+```
+
+---
+class: inverse
+
+## The two-sample t-test
+
+The $t$-test gets implemented in `R` using the `t.test()` function.
+
+```{r}
+t.test(gpa~gender, data=gpa, var.equal=TRUE)
+```
+
+What should we conclude? 
+
+--
+
+Based on these results, we would _fail to reject_ the null hypothesis, and conclude there is no meaningful difference in GPA between males and females at Duke University.
+
+---
+class: inverse
+
+## But how is this a linear model?
+
+Let $Y$ represent the GPA of students at Duke University, and $X$ represent the gender. Our $t$-test is really just a __special case of a linear model__.
+
+For the $i^{th}$ student, let
+
+$$X_i=\begin{cases}
+0 & female\\
+1 & male
+\end{cases}$$
+
+--
+
+For student $i$, the predicted mean GPA will depend only on their gender.
+
+$\hat{Y}_i = \beta_0 + \beta_1 X_i$
+
+- If student $i$ is _female_, $\hat{Y}_i = \beta_0$.
+- If student $i$ is _male_, $\hat{Y}_i = \beta_0 + \beta_1$.
+
+---
+class: inverse
+
+## Okay, but how does that help?
+
+What happens if we fit a linear model to this data?
+
+```{r}
+model.gpa <- lm(gpa~gender, data=gpa)
+summary(model.gpa)
+```
+
+---
+class: inverse
+
+## Okay, but how does that help?
+
+$$\hat{y} = 3.61126 - 0.05126 X$$
+
+Find the predicted mean GPA for males and females using the linear model. Where have you seen these numbers before?
+
+.can-edit[__Prediction for males__ (X=1): ]
+
+.can-edit[__Prediction for females__ (X=0): ]
+
+---
+class: inverse
+
+## Okay, but how does that help?
+
+```{r}
+summary(model.gpa)
+```
+
+.can-edit[__The intercept represents__: ]
+
+---
+class: inverse
+
+## Okay, but how does that help?
+
+```{r}
+summary(model.gpa)
+```
+
+.can-edit[__The slope represents__: ]
+
+
+---
+
+## Multiple linear regression
+
+Multiple linear regression is just an extension of simple linear regression - we now include multiple explanatory variables in our model.
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ... + \beta_k X_k + \epsilon$$
+
+
+
+All model assumptions still apply with multiple linear regression.
+
+---
+class: inverse
+
+## Multiple linear regression
+
+__Example__: The Child Health and Development Studies investigate a range of topics.  One study, in particular, considered all pregnancies between 1960 and 1967 among women in the Kaiser Foundation Health Plan in the San Francisco East Bay area.  The goal is to model the weight of the infants (`bwt`, in ounces) using variables including length of pregnancy in days (`gestation`), mother’s age in years (`age`), mother’s height in inches (`height`), whether the child was the first born (`parity`), mother’s pregnancy weight in pounds (`weight`), and whether the mother was a smoker (`smoke`).
+
+Let's build a multiple linear regression model. We can use the `+` in the `lm()` function to add additional terms. For now, we'll focus on using the numerical variables in the data set to predict birth weight.
+
+```{r}
+data(babies)
+head(babies)
+```
+
+---
+class: inverse
+
+## Multiple linear regression
+
+Write the linear model for predicting birth weight. How many explanatory variables and coefficients will be in the model?
+
+```{r}
+model.babies <- lm(bwt ~ gestation + age + height + weight, data=babies)
+summary(model.babies)
+```
+
+---
+
+## Visualizing regression models
+
+Often it's useful to visualize the model coefficients and uncertainty, as well as the predictions. The `jtools` library in R includes some helpful functions for visualizing!
+
+```{r}
+# install.packages('jtools')
+library(jtools)
+```
+
+- `plot_summs()` will generate a plot of model coefficients
+- These will be very useful for __comparing models__!
+
+.footnote[https://cran.r-project.org/web/packages/jtools/vignettes/summ.html#summ]
+
+---
+class: inverse
+
+## Multiple linear regression
+
+Which variables are significantly related to birth weight? Which are not?
+
+```{r}
+summary(model.babies)
+```
+
+---
+class: inverse
+
+## Multiple linear regression
+
+Which variables are significantly related to birth weight? Which are not?
+
+```{r}
+plot_summs(model.babies, 
+           plot.distributions=TRUE,
+           inner_ci_level=0.95)
+```
+
+---
+class: inverse
+
+## Multiple linear regression
+
+Are the LINE assumptions met?
+
+```{r}
+par(mfrow=c(2, 2))
+plot(model.babies)
+```
+
+---
+
+## Measuring a model's success
+
+The __coefficient of determination__, $R^2$, measures the proportion of variability in the response variable, $Y$, explained using the regression model. 
+
+- Simple linear regression: 
+
+$$R^2 = \left[Corr(Y_i, X_i)\right]^2$$
+
+--
+
+- Multiple linear regression: 
+
+$$R^2 = \left[Corr(Y_i, \hat{Y}_i)\right]^2$$
+
+--
+
+In a multiple regression setting, __adjusted R-squared__ can sometimes be the better choice. (We'll talk more about why when we get to model selection.)
+
+
+
+---
+class: inverse
+
+## Multiple R-squared
+
+How much of the variability in birth weight is explained using this linear model?
+
+```{r, echo=FALSE}
+summary(model.babies)
+```
+
+---
+class: inverse
+
+## More "regression" models
+
+__Example__: The American Community Survey is an ongoing annual survey, administered by the US Census Bureau, that generates data that helps determine how federal and state funds are distributed. The data set `acs12` contains the ACS data from 2012 on 2,000 respondents.
+
+```{r}
+data(acs12)
+head(acs12)
+```
+
+What variables impact the number of hours an American works each week? First, note the `NA` responses - let's remove those. That takes us down to 959 observations.
+
+```{r}
+acs12.new <- acs12 %>% 
+  filter(hrs_work != 'NA')
+```
+
+--
+
+What statistical technique could we use to see if there is a relationship between race and the mean hours worked per week?
+
+---
+class: inverse
+
+## Analysis of variance
+
+```{r, fig.height=4}
+favstats(~hrs_work|race, data=acs12.new)
+```
+
+---
+class: inverse
+
+## Analysis of variance
+
+```{r}
+acs12.new %>% ggplot(aes(x=race, y=hrs_work)) + 
+  geom_boxplot(aes(fill=race)) + 
+  labs(x='Race', y='Hours Worked', fill='Race') + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## Analysis of variance
+
+```{r}
+model.acs <- aov(hrs_work ~ race, data=acs12.new)
+summary(model.acs)
+```
+
+Is there a significant effect of race on the mean hours worked per week?
+
+.can-edit[__Effect?__: ]
+
+Compare the variability within each group.
+
+.can-edit[__Variability?__: ]
+
+---
+class: inverse
+
+## ANOVA -> regression
+
+You probably have a good idea of what we're doing next! The model gets a bit more complex. In order to represent the four levels of race represented, we'll need to use __dummy variables__.
+
+For the $i^{th}$ respondent, let
+
+$$X_{1i}=\begin{cases}
+0 & white\\
+1 & black
+\end{cases}$$
+
+
+$$X_{2i}=\begin{cases}
+0 & white\\
+1 & asian
+\end{cases}$$
+
+
+$$X_{3i}=\begin{cases}
+0 & white\\
+1 & other
+\end{cases}$$
+
+---
+class: inverse
+
+## ANOVA -> regression
+
+For respondent $i$, the predicted mean hours worked will depend only on their race.
+
+$$\hat{Y}_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + \beta_3 X_{3i}$$
+
+
+- If respondent $i$ is _white_, $\hat{Y}_i = \beta_0$.
+- If respondent $i$ is _black_, $\hat{Y}_i = \beta_0 + \beta_1$.
+- If respondent $i$ is _Asian_, $\hat{Y}_i = \beta_0 + \beta_2$.
+- If respondent $i$ is _"other"_, $\hat{Y}_i = \beta_0 + \beta_3$.
+
+--
+
+By default, when doing regression `R` assigns the first category in the data set to be the "reference category". In this case, white respondents will be sequentially compared to each of the other races in the data.
+
+---
+class: inverse
+
+## ANOVA -> regression
+
+```{r}
+model.acs2 <- lm(hrs_work~race, data=acs12.new)
+summary(model.acs2)
+```
+
+Are any of the races in the data set significantly different from the white respondents?
+
+---
+class: inverse
+
+## ANOVA -> regression
+
+Find the predicted mean hours worked per week for each of the races represented. 
+
+```{r}
+model.acs2
+```
+
+.can-edit[__Predicted means for...__
+
+- White respondents:
+- Black respondents:
+- Asian respondents:
+- "Other" repondents: 
+]
+
+
+---
+class: inverse
+
+## ANOVA -> regression
+
+Why don't the p-values in the `Pr(>|t|)` column match the p-value in the ANOVA output? 
+
+```{r}
+summary(model.acs2)
+```
+
+---
+class: inverse
+
+## Or do they?
+
+```{r}
+summary(model.acs)
+```
+
+---
+
+## What's the moral of the story?
+
+
+
+
+

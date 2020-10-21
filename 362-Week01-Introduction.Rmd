@@ -1,0 +1,400 @@
+---
+title: 'Week 1: Introduction to Linear Models'
+#subtitle: 'Ch. 1: Introduction to Data'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+#date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=6, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+class: inverse
+
+## Learning objectives
+
+By the end of this section, you should be able to answer the following questions:
+
+1. What is a linear model?
+2. Where have you seen these before?
+
+---
+
+## Introduction
+
+In statistics, the phrase __linear model__ refers to a class of models that can be written as:
+
+$$Y = f(\mathbf{X}) + \epsilon$$
+
+--
+
+Sounds simple, right? There are some restrictions - specifically, $f()$ can't be just _any_ function.
+
+--
+
+Not surprisingly, the _linear model_ is restricted to _linear functions_.
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ... + \beta_k X_k + \epsilon$$
+---
+
+## What makes a linear function?
+
+$$Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ... + \beta_k X_k + \epsilon$$
+
+Here, 
+
+- $Y$ represents the _response variable_: the variable we want to be ale to understand or predict using our model.
+- $X_i$ represents the $i^{th}$ _explanatory variable_: one or more variables we want to use to understand or predict $Y$.
+- $\beta_i$ represents some _slope coefficient_ on $X_i$.
+- $\epsilon$ represents the random error. We usually assume $\epsilon \sim Normal(0, \sigma^2)$, partially out of convenience and partially because of intuition.
+
+---
+class: inverse
+
+## Is it a linear model?
+
+__Example__: For each of the following models, determine whether or not it is linear. Be prepared to support your answer.
+
+1. $Y = exp(\beta_0 + \beta_1 X_1)$
+
+2. $Y = \beta_0 + \beta_1 \beta_2 ^{X_1} - \beta_3 X_2 + \epsilon$
+
+3. $Y = \beta_0 - \beta_1 X_1 + \beta_2 X_2 + \epsilon$
+
+4. $Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 ^2 + \epsilon$
+
+5. $Y = \beta_0 + \frac{\beta_1}{\beta_0} X_1 + \epsilon$
+
+---
+class: inverse
+
+## Is it a linear model?
+
+__Example__: For each of the following models, determine whether or not it is linear. Be prepared to support your answer.
+
+1. $Y = exp(\beta_0 + \beta_1 X_1)$ `r emo::ji("poop")` 
+
+--
+
+2.  $Y = \beta_0 + \beta_1 \beta_2 ^{X_1} - \beta_3 X_2 + \epsilon$ `r emo::ji("smile")`
+
+--
+
+3.  $Y = \beta_0 - \beta_1 X_1 + \beta_2 X_2 + \epsilon$ `r emo::ji("smile")`
+
+--
+
+4.  $Y = \beta_0 + \beta_1 X_1 + \beta_2 X_2 ^2 + \epsilon$ `r emo::ji("smile")`
+
+--
+
+5.  $Y = \beta_0 + \frac{\beta_1}{\beta_0} X_1 + \epsilon$ `r emo::ji("poop")`
+
+---
+
+## Matrix notation
+
+Linear models are often written in matrix form (there are some nice results that can be shown more easily using matrices). 
+
+> If you're not familiar with matrix algebra, that's okay! 
+
+Formally, $Y$ represents a vector of values for the _response variable_.
+
+$$Y = \left(\begin{array}{c}
+Y_{1}\\
+Y_{2}\\
+\vdots\\
+Y_{n}
+\end{array}\right)$$
+
+--
+
+$\mathbf{X}$ represents a matrix of values for the _k explanatory variables_. 
+
+$$\mathbf{X} = \left(\begin{array}{ccc}
+X_{11} & ... & X_{1k}\\
+X_{21} & ... & X_{2k}\\
+\vdots & \ddots & \vdots\\
+X_{n1} & ... & X_{nk}
+\end{array}\right)$$
+
+- I will (try to) use boldface for matrices.
+
+---
+
+## Matrix notation
+
+$\beta$ represents a vector of _k + 1 slope coefficients_. 
+
+$$\beta = \left(\begin{array}{c}
+\beta_{1}\\
+\beta_{2}\\
+\vdots\\
+\beta_{n}
+\end{array}\right)$$
+
+--
+
+Why are there $k+1$ slope coefficients instead of $k$?
+
+--
+
+$\epsilon$ represents a vector of _error terms_, usually assumed to follow a $Normal(0, \sigma^2)$ distribution.
+
+$$\epsilon = \left(\begin{array}{c}
+\epsilon_{1}\\
+\epsilon_{2}\\
+\vdots\\
+\epsilon_{n}
+\end{array}\right)$$
+
+---
+
+## Simple linear regression
+
+The most familiar linear model - and the one you're probably thinking of - is __simple linear regression__.
+
+$$Y = \beta_0 + \beta_1 X + \epsilon$$
+
+--
+
+"Simple" refers to the fact that there is only a single explanatory variable, both of which must be _numerical_. 
+
+--
+
+The "fitted" linear regression model uses slightly different notation.
+
+$$\hat{Y} = \hat{\beta}_0 + \hat{\beta}_1 X_1$$
+
+- $\hat{Y}$ refers to the predicted mean value of the response variable at a given level of $X$.
+- $\hat{\beta}_0$ and $\hat{\beta}_1$ are the estimated slope coefficients, based on the data collected.
+
+--
+
+Where did $\epsilon$ go?
+
+---
+
+## Residuals
+
+For each data point, we can calculate a __residual__ by comparing the predicted value for that point, $\hat{Y}_i$ to the observed value $Y_i$.
+
+$$e_i = \hat{Y}_i - Y_i$$
+
+--
+
+Points that fall close to the regression line will have small residuals, and points that fall far away will have large residuals.
+
+
+---
+class: inverse
+
+## Residuals
+
+__Example__: Consider data on body measurements from penguins living on the Palmer Archipelago in Antartica. The blue line represents the __linear regression line__. Compare the points to the line. Which will have _large residuals_ and which will have _small residuals_?
+
+.pull-left[
+```{r penguin.plot, eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE}
+library(palmerpenguins)
+data(penguins)
+penguins %>%
+  ggplot(aes(x=bill_length_mm, 
+             y=flipper_length_mm)) + 
+  geom_point() + 
+  geom_smooth(method='lm', #<<
+              se=FALSE) + #<<
+  labs(x='Bill length (mm)', 
+       y='Flipper length (mm)', 
+       title='Palmer penguins')
+```
+]
+
+.pull-right[
+```{r ref.label = 'penguin.plot', echo = FALSE}
+```
+]
+
+---
+
+## OLS: Ordinary least squares
+
+OLS stands for "ordinary least squares", which is the process by which the simple linear regression model is fit to the data. OLS regression chooses the line that satisfies the following two criteria:
+
+--
+
+- The sum of the residuals must be 0.
+
+$$\sum_{i=1}^{n}e_{i}=0$$
+
+--
+
+- The sum of the squared residuals is minimized.
+
+$$\sum_{i=1}^{n}e_{i}^{2}$$
+
+---
+
+## LINE assumptions
+
+There are four "assumptions" for using a linear regression model - __LINE__.
+
+- __L__: There is a _linear_ relationship between the mean response $Y$ and the explanatory variable $X$. 
+
+--
+
+- __I__: The errors are _independent_. In other words, there is no relationship between how far any two points fall from the regression line. This can be satisfied/violated through the experimental design.
+
+--
+
+- __N__: The response variable is _normally_ distributed at each level of $X$.
+
+--
+
+- __E__: The _error_ variance, or equivalently, the standard deviation of the responses is equal for all levels of $X$.
+
+---
+class: inverse
+
+## Building a regression model
+
+__Example__: Suppose we'd like to build a regression model to predict the length of a penguin's flipper using the length of its' bill.
+
+```{r, echo=FALSE}
+penguins %>%
+  ggplot(aes(x=bill_length_mm, 
+             y=flipper_length_mm)) + 
+  geom_point() + 
+  geom_smooth(method='lm', #<<
+              se=FALSE) + #<<
+  labs(x='Bill length (mm)', 
+       y='Flipper length (mm)', 
+       title='Palmer penguins')
+```
+
+---
+class: inverse
+
+## Building a regression model
+
+1. Write the fitted linear model to predict the length of a penguin's flipper based on its' bill length, and describe what each of the coefficients mean. 
+2. Are the model coefficients "statistically significant"? What does this mean in context?
+
+```{r}
+model <- lm(flipper_length_mm ~ bill_length_mm, data=penguins)
+summary(model)
+```
+
+---
+class: inverse
+
+## Making predictions
+
+Predict the flipper length for a penguin with a 40 mm bill.
+
+.can-edit[X=40: ] 
+
+Predict the flipper length for a penguin with a 55 mm bill. 
+
+.can-edit[X=55: ] 
+
+Predict the flipper length for a penguin with a 70 mm bill.
+
+.can-edit[X=70: ] 
+
+--
+
+Do you have any concerns about your predictions?
+
+---
+class: inverse
+
+## Evaluating the assumptions
+
+Does this model satisfy the LINE assumptions?
+
+```{r}
+# Set the plotting window to be 2 by 2
+par(mfrow=c(2, 2))
+
+plot(model)
+```
+
+---
+class: inverse
+
+## What's missing?
+
+Is there anything else about this data we should consider?
+
+
+.pull-left[
+```{r penguin.plot2, eval=FALSE, echo=TRUE, message=FALSE, warning=FALSE}
+penguins %>%
+  ggplot(aes(x=bill_length_mm, 
+             y=flipper_length_mm)) + 
+  geom_point(aes(col=species, #<<
+                 pch=species)) + #<<
+  geom_smooth(method='lm', 
+              se=FALSE) + 
+  labs(x='Bill length (mm)', 
+       y='Flipper length (mm)', 
+       title='Palmer penguins')
+```
+]
+
+.pull-right[
+```{r ref.label = 'penguin.plot2', echo = FALSE}
+```
+]
