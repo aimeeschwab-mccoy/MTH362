@@ -1,0 +1,243 @@
+---
+title: 'Week 3: Model Selection and Evaluation'
+subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+#date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+class: inverse
+
+## Case study
+
+__Example__: The Child Health and Development Studies investigate a range of topics.  One study, in particular, considered all pregnancies between 1960 and 1967 among women in the Kaiser Foundation Health Plan in the San Francisco East Bay area.  The goal is to model the weight of the infants (`bwt`, in ounces) using variables including length of pregnancy in days (`gestation`), mother’s age in years (`age`), mother’s height in inches (`height`), whether the child was the first born (`parity`), mother’s pregnancy weight in pounds (`weight`), and whether the mother was a smoker (`smoke`).
+
+```{r, warning=FALSE, message=FALSE}
+library(openintro)
+data(babies)
+head(babies)
+```
+
+---
+class: inverse
+
+## Full model
+
+```{r, eval=FALSE}
+model_full <- lm(bwt ~ gestation + parity + age + height + 
+                   weight + smoke, data=babies)
+summary(model_full)
+```
+
+---
+class: inverse
+
+## Full model
+
+```{r, echo=FALSE}
+model_full <- lm(bwt ~ gestation + parity + age + height + 
+                   weight + smoke, data=babies)
+summary(model_full)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r, eval=FALSE}
+library(leaps)
+model.subsets <- regsubsets(bwt ~ gestation + parity + age + height + 
+                   weight + smoke, data=babies, nbest=3)
+summary(model.subsets)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r, echo=FALSE}
+library(leaps)
+model.subsets <- regsubsets(bwt ~ gestation + parity + age + height + 
+                   weight + smoke, data=babies, nbest=3)
+summary(model.subsets)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r}
+plot(model.subsets)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r}
+summary <- summary(model.subsets)
+names(summary)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r}
+summary$which
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r}
+summary$rsq
+summary$adjr2
+```
+
+---
+class: inverse
+
+## $R^2$ v. adjusted $R^2$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+data <- tibble(summary$rsq, summary$adjr2, summary$rss, summary$cp, summary$bic)
+data %>% ggplot(aes(x=summary$rsq, y=summary$adjr2)) + geom_point() + labs(x='R-squared', y='Adjusted R-squared')
+```
+
+---
+class: inverse
+
+## $R^2$ v. $BIC$
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+data %>% ggplot(aes(x=summary$rsq, y=summary$bic)) + geom_point() + labs(x='R-squared', y='BIC')
+```
+
+---
+
+## Does the metric matter?
+
+![](https://static3.srcdn.com/wordpress/wp-content/uploads/2020/09/Among-Us-Discuss.jpg?q=50&fit=crop&w=960&h=500)
+
+---
+class: inverse
+
+## Correlation
+
+```{r}
+cor(babies)
+```
+
+---
+class: inverse
+
+## Correlation
+
+```{r}
+cor(babies, use='complete')
+```
+
+---
+class: inverse
+
+## Correlation
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE}
+#install.packages('ggcorrplot')
+library(ggcorrplot)
+corr.matrix <- cor(babies, use='complete')
+ggcorrplot(corr.matrix, lab=TRUE)
+```
+
+
+---
+class: inverse
+
+## Correlation
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#install.packages('ggcorrplot')
+library(ggcorrplot)
+corr.matrix <- cor(babies, use='complete')
+ggcorrplot(corr.matrix, lab=TRUE)
+```
+
+---
+class: inverse
+
+## Multicollinearity
+
+Do you think multicollinearity will be a problem with the full model? Explain why or why not.
+
+---
+class: inverse
+
+## Variance inflation factor
+
+```{r, message=FALSE, warning=FALSE}
+library(car)
+vif(model_full)
+```

@@ -1,0 +1,478 @@
+---
+title: 'Week 4: Poisson Regression'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+class: inverse
+
+## Case study: ER complaints
+
+__Example__: Data was recorded on a random sample of 44 doctors working in an emergency service at a hospital to study factors affecting the number of complaints received. 
+
+The variables recorded in this data include:
+
+Variable|Description
+-------|-------------
+`visits`|the number of patient visits
+`complaints`|the number of complaints
+`residency`|whether the doctor is in residency training
+`gender`|the gender of the doctor
+`revenue`|dollars earned per hour by the doctor
+`hours`|total number of hours worked
+
+
+Based on the scatterplot, does working longer hours appear to be related to more complaints?
+
+---
+class: inverse
+
+## Case study: ER complaints
+
+```{r, echo=FALSE}
+library(faraway)
+data(esdcomp)
+esdcomp %>% ggplot(aes(x=hours, y=complaints)) + 
+  geom_point() + 
+  labs(x='Hours Worked', y='Number of Complaints')
+```
+
+Does a Poisson model seem reasonable for this data? Explain why or why not.
+
+---
+class: inverse
+
+## Is a Poisson model appropriate?
+
+```{r}
+esdcomp %>% summarize(mean = mean(complaints), var=var(complaints))
+
+esdcomp %>% group_by(gender) %>%
+  summarize(mean = mean(complaints), var=var(complaints))
+
+esdcomp %>% group_by(residency) %>%
+  summarize(mean = mean(complaints), var=var(complaints))
+```
+
+---
+class: inverse
+
+## Fitting the model
+
+Fit a Poisson model to predict mean number of complaints based on hours worked. Is the model "statistically significant"?
+
+```{r}
+model.complaints <- glm(complaints ~ hours, data=esdcomp, family='poisson')
+summary(model.complaints)
+```
+
+---
+class: inverse
+
+## Evaluate the model
+
+Evaluate the fit of this Poisson model. Is the model a good fit? Do you have any concerns about the model assumptions?
+
+```{r}
+1 - pchisq(model.complaints$deviance, model.complaints$df.residual)
+```
+
+
+
+```{r, echo=FALSE, fig.height=10}
+par(mfrow=c(2,2))
+plot(model.complaints)
+```
+
+---
+
+## Overdispersion
+
+__Overdispersion__: exists when there is more variation in the response variable than the model implies. 
+
+--
+
+Overdispersion can happen for a few reasons:
+
+1. More explanatory variables should be added to the model.
+
+2. The response variable is truly overdispersed.
+
+--
+ 
+Let's investigate whether there is actually overdispersion in this model. First, let's add other explanatory variables to the model to see if it helps explain the extra variation.
+
+---
+class: inverse
+
+## Adding more variables
+
+```{r}
+model.complaints2 <- glm(complaints ~ hours + revenue + residency + gender, 
+                         data=esdcomp, family='poisson')
+summary(model.complaints2)
+```
+
+---
+class: inverse
+
+## Adding more variables
+
+Residency and gender don't seem to have an effect, so let's drop those from the model.
+
+```{r}
+model.complaints3 <- glm(complaints ~ hours + revenue, data=esdcomp, 
+                         family='poisson')
+summary(model.complaints3)
+```
+
+---
+class: inverse
+
+## Adding more variables
+
+How well does the model fit now? Are any model assumptions still being violated?
+
+```{r, fig.height=10}
+1 - pchisq(model.complaints3$deviance, model.complaints3$df.residual)
+
+par(mfrow=c(2,2))
+plot(model.complaints3)
+```
+
+---
+
+## Overdispersion
+
+We can estimate a __dispersion parameter__, $\phi$, by: dividing the model deviance by its corresponding degrees of freedom. 
+
+$$\hat{\phi} = \frac{Deviance}{n-p}$$
+
+
+where $p$ is the number of model parameters. If there is no overdispersion, this should be close to: 
+
+---
+
+## Overdispersion
+
+The overdispersion parameter inflates the standard errors by multiplying the variance by $\phi$. The new distribution is referred to as a __quasiPoisson__ distribution, and we fit the model using __quasilikelihood__.
+
+```{r}
+model.complaints4 <- glm(complaints ~ hours + revenue, data=esdcomp,
+                         family='quasipoisson')
+summary(model.complaints4)
+```
+
+---
+class: inverse
+
+## Overdispersion
+
+The estimated overdispersion parameter is 1.46, meaning that there is some extra variance in the model. Compare the standard errors from the quasipoisson model to the standard errors from the Poisson model - what do you notice?
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(model.complaints4)
+```
+
+---
+class: inverse
+
+## Overdispersion
+
+```{r}
+model.complaints5 <- glm(complaints ~ hours + revenue + gender + residency, 
+                         data=esdcomp, family='quasipoisson')
+summary(model.complaints5)
+```
+
+---
+
+## Last ditch attempts with the complaint
+
+As a final attempt, let's transform the hours variable:
+
+- $ln(hours)$
+- $hours^2$
+- $\sqrt{hours}$
+
+---
+class: inverse
+
+## Natural log transform
+
+```{r}
+model.log <- glm(complaints ~ I(log(hours)), 
+                 data=esdcomp, family='quasipoisson')
+summary(model.log)
+
+esdcomp2 <- esdcomp %>% mutate(pred.log=model.log$fitted.values)
+```
+
+---
+class: inverse
+
+## Square transform
+
+```{r}
+model.square <- glm(complaints ~ I(hours^2), 
+                 data=esdcomp, family='quasipoisson')
+summary(model.square)
+
+esdcomp2 <- esdcomp2 %>% mutate(pred.square=model.square$fitted.values)
+```
+
+---
+class: inverse
+
+## Square root transform
+
+```{r}
+model.sqrt <- glm(complaints ~ I(sqrt(hours)), 
+                 data=esdcomp, family='quasipoisson')
+summary(model.sqrt)
+
+esdcomp2 <- esdcomp2 %>% mutate(pred.sqrt=model.sqrt$fitted.values)
+```
+
+---
+class: inverse
+
+## Did it work??
+
+If a model is a reasonable fit: what should the relationship between the observed values and fitted values look like in a scatterplot?
+
+```{r, eval=FALSE}
+esdcomp2 %>% ggplot(aes(x=complaints, y=pred.log)) +
+  labs(x='Observed Complaints', y='Predicted Values') +
+  geom_point(col='tomato', pch=15) + 
+  geom_point(col='steelblue3', pch=16, aes(x=complaints, y=pred.square)) +  
+  geom_point(col='springgreen4', pch=17, aes(x=complaints, y=pred.sqrt))
+```   
+
+---
+class: inverse
+
+## Did it work??
+
+If a model is a reasonable fit: what should the relationship between the observed values and fitted values look like in a scatterplot?
+
+```{r, echo=FALSE}
+esdcomp2 %>% ggplot(aes(x=complaints, y=pred.log)) +
+  labs(x='Observed Complaints', y='Predicted Values') +
+  geom_point(col='#0099e5', pch=15) + 
+  geom_point(col='#ff4c4c', pch=16, 
+             aes(x=complaints, y=pred.square)) +  
+  geom_point(col='#34bf49', pch=17, 
+             aes(x=complaints, y=pred.sqrt))
+```  
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+__Example__: All postsecondary institutions that participate in federal student aid programs are required to collect and report data on crime occurring on campus to the Department of Education. In turn, this data is publicly available on the website of the Office of Postsecondary Education. We are interested in looking at whether there are regional differences in violent crime on campus controlling for differences in the type of school.
+
+```{r, echo=3}
+#c_data <- read.csv("~/OneDrive - Creighton University/Fall 2019 Courses/MTH 362 - Statistical Modeling/Class Notes/c_data.csv")
+c_data <- read.csv("C:/Users/ads67836/OneDrive - Creighton University/MTH 362 - Statistical Modeling/Class Notes/c_data.csv")
+head(c_data)
+```
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+Variables in this data include:
+
+- `type` = college (C) or university (U)
+- `region` = region of the country (C = Central, MW = Midwest, NE = Northeast, SE = Southeast, SW = Southwest, and W = West)
+- `nv` = the number of violent crimes for that institution for the given year
+- `Enrollment` = enrollment at the school
+- `enroll1000` = enrollment at the school, in thousands
+- `nvrate` = number of violent crimes per 1000 students
+
+`nv` is a count variable, so we should model it using Poisson regression.
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+```{r, warning=FALSE, message=FALSE}
+c_data %>% ggplot(aes(x=nv)) + 
+  geom_histogram(bins=20, fill='#0099e5', col='black')
+```
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+```{r}
+library(skimr)
+c_data %>% skim(nv)
+```
+
+1. Is overdispersion a problem?
+2. Do you think the variables provided will be useful predictors?
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+```{r}
+c_data %>% ggplot(aes(x=nv)) + 
+  geom_histogram(aes(fill=type), binwidth=3) + 
+  facet_wrap(~region) + 
+  scale_fill_brewer(palette='Paired')
+```
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+```{r}
+c_data %>% 
+  group_by(region, type) %>%
+  summarize(MeanCount=mean(nv),
+            VarCount=var(nv),
+            MeanRate=mean(nvrate),
+            VarRate=var(nvrate),
+            n=n())
+```
+
+---
+class: inverse
+
+## Case study: Campus crime
+
+How does enrollment affect the rates?
+
+```{r}
+c_data %>% ggplot(aes(x=enroll1000, y=nv)) +
+  geom_point()
+```
+
+---
+
+## Adding an offset
+
+Let $\lambda$ be the mean number of violent crimes per year. The number of violent crimes observed at a college or university will depend on the enrollment at that university, so we might want to account for that by using an __offset__.
+
+$$log\left(\frac{\lambda}{enroll100}\right)=\beta_{0}+\beta_{1}X_{1}$$
+
+---
+
+## Adding an offset
+
+__Example__: Adjusting the yearly count by enrollment is basically equivalent to adding $log(enroll100)$ to the right hand side of the Poisson regression. Prove it.
+
+---
+class: inverse
+
+## Adding an offset
+
+How does the model with the offset compare to the model without?
+
+```{r}
+model.offset <- glm(nv ~ type + region, family='poisson', 
+                    data=c_data, offset=log(enroll1000))
+summary(model.offset)
+```
+
+---
+class: inverse
+
+## Adding an offset
+
+```{r}
+model.no.offset <- glm(nv ~ type + region, family='poisson', 
+                    data=c_data)
+summary(model.no.offset)
+```
+
+---
+class: inverse
+
+## Choosing a model
+
+__Example__: Which model do you support, and why? What additional information do you need to make a decision? Interpret that model's coefficients.
+
+![](https://static3.srcdn.com/wordpress/wp-content/uploads/2020/09/Among-Us-Discuss.jpg?q=50&fit=crop&w=960&h=500)
+
+---
+class: inverse
+
+## Modeling goals
+
+__Example__: What do you think is the goal or purpose of this model?
+
+![](https://static3.srcdn.com/wordpress/wp-content/uploads/2020/09/Among-Us-Discuss.jpg?q=50&fit=crop&w=960&h=500)
+
+
+
+
+

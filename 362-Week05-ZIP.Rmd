@@ -1,0 +1,804 @@
+---
+title: 'Week 5: Zero-Inflated Poisson Regression'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+class: inverse
+
+## Case study: Drinking on campus
+
+A survey was conducted on a dry college campus to explore factors related to drinking behavior:
+
+1. What proportion of students on campus never drink?
+2. What factors, such as off campus living and sex, are related to student drinking?
+3. It is commonly assumed that males’ alcohol consumption is greater than females’; is this true on this campus?
+
+---
+class: inverse
+
+## Case study: Drinking on campus
+
+Answering these questions would be a simple matter if we knew who was and was not a drinker in our sample. Unfortunately, the non-drinkers did not identify themselves as such, so we will need to use the data available with a model that allows us to estimate the proportion of drinkers and non-drinkers.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+#weekendDrinks <- read.csv("~/OneDrive - Creighton University/Fall 2019 Courses/MTH 362 - Statistical Modeling/Class Notes/weekendDrinks.csv")
+weekendDrinks <- read.csv("C:/Users/ads67836/OneDrive - Creighton University/MTH 362 - Statistical Modeling/Class Notes/weekendDrinks.csv")
+```
+
+---
+class: inverse
+
+## Case study: Drinking on campus
+
+- Data was provided by students taking an introductory statistics course at St. Olaf College
+- Response variable is the students' report of the number of alcoholic drinks they consumed the previous weekend
+- Explanatory variables are whether the student lives off campus, and sex
+
+```{r}
+head(weekendDrinks)
+```
+
+---
+class: inverse
+
+## How many drinks consumed?
+
+```{r}
+weekendDrinks %>% ggplot(aes(x=drinks)) + 
+  geom_histogram(binwidth=1, fill='#66c2a5', col='black') +
+  labs(x='Drinks Consumed Last Weekend', y='Count')
+```
+
+---
+class: inverse
+
+## Fitting a Poisson model
+
+```{r, message=FALSE, warning=FALSE}
+library(mosaic)
+favstats(~drinks, data=weekendDrinks)
+```
+
+---
+class: inverse
+
+## Poisson, $\lambda$=2.01
+
+```{r}
+x <- 0:22
+probs <- dpois(x, lambda=2.01)
+
+prob_dist <- tibble(x, probs)
+head(prob_dist)
+```
+
+---
+class: inverse
+
+## Poisson, $\lambda$=2.01
+
+```{r}
+prob_dist %>% ggplot(aes(x=x, y=probs)) + 
+  geom_col(fill='#fc8d62', col='black') + 
+  labs(x='x', y='P(X=x)', title='Poisson(lambda=2.01)')
+```
+
+---
+class: inverse
+
+## Poisson, $\lambda$=2.01
+
+```{r}
+weekendDrinks %>% ggplot(aes(x=drinks)) + 
+  geom_histogram(binwidth=1, fill='#66c2a5', col='black') +
+  labs(x='Drinks Consumed Last Weekend', y='Count')
+```
+
+---
+
+## Problems
+
+1. The data clearly does not match a Poisson distribution with $\lambda$=2.01.
+2. There also appears to be some overdispersion:
+
+- $\bar{x}=2.01$
+- $SD = 3.28$
+
+Where is the overdispersion coming from?
+
+--
+
+There are __too many zeros__!
+
+---
+
+## Abundance of zeros
+
+We might be able to account for the _abundance of zeros_ with our other variables:
+
+- Who are the non-drinkers?
+
+--
+
+- Does gender play a role?
+
+--
+
+- Can we find out anything about the dorms?
+
+---
+class: inverse
+
+## Who are the non-drinkers?
+
+__Assumption__: we believe that those responding zero drinks are coming from a _mixture_ of non-drinkers and drinkers who abstained the weekend of the survey.
+
+--
+
+- __Non-drinkers__: respondents who never drink and would always reply with zero
+
+--
+
+- __Drinkers__: obviously this includes those responding with one or more drinks, but it also includes people who are drinkers but did not happen to imbibe the past weekend. These people reply zero but are not considered non-drinkers.
+
+---
+class: inverse
+
+## Does gender play a role?
+
+Does the distribution of drinks consumed change depending on gender?
+
+```{r, echo=FALSE}
+weekendDrinks %>% ggplot(aes(x=drinks)) + 
+  geom_histogram(aes(fill=sex), binwidth=1, col='black') + 
+  facet_wrap(~sex) + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## Does gender play a role?
+
+Does the distribution of drinks consumed change depending on gender?
+
+```{r, echo=FALSE}
+favstats(~drinks|sex, data=weekendDrinks)
+```
+
+---
+class: inverse
+
+## Does gender play a role?
+
+- Theoretical distribution using the mean for each sex
+
+```{r, echo=FALSE}
+x <- c(0:22, 0:22)
+probs <- dpois(x, lambda=c(rep(1.29, 23), rep(3.65, 23)))
+sex <- c(rep('f', 23), rep('m', 23))
+
+dist <- tibble(x, sex, probs)
+dist %>% ggplot(aes(x=x, y=probs)) + geom_col(aes(fill=sex), col='black') + facet_wrap(~sex) + scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## What do we know about dorms?
+
+St. Olaf College housing website: 
+
+https://wp.stolaf.edu/reslife/living-on-campus/
+
+---
+class: inverse
+
+## What do we know about dorms?
+
+St. Olaf College housing website: 
+
+https://wp.stolaf.edu/reslife/living-on-campus/
+
+- _"First-year students will be assigned housing in one of the three first-year-only halls or in Hill/Kitt or Mohn Halls, where upper-class and first-year students reside on separate floors."_
+
+- First-year: Ellingson, Hoyme, Kildahl, Kittelsby, Mohn
+- Upper-class: Hilleboe, Larson, Mellby, Mohn, Rand, Thorson, Ytterboe
+
+---
+class: inverse
+
+## What do we know about dorms?
+
+```{r, echo=FALSE}
+weekendDrinks %>% ggplot(aes(x=dorm)) + geom_bar(aes(fill=dorm)) + guides(fill=FALSE) + coord_flip() + scale_fill_brewer(palette='Set3')
+```
+
+---
+class: inverse
+
+## New variable: `firstyear`
+
+```{r}
+weekendDrinks2 <- weekendDrinks %>% 
+  mutate(firstyear=(dorm %in% c('ellingson', 'hoyme', 'kildahl', 
+                                'kittlesby', 'mohn'))) %>%
+  mutate(offcampus=(dorm =='off campus'))
+
+head(weekendDrinks2)
+```
+
+---
+class: inverse
+
+## Does class standing play a role?
+
+Does the distribution of drinks consumed change depending on class?
+
+```{r, echo=FALSE}
+weekendDrinks2 %>% ggplot(aes(x=drinks)) + 
+  geom_histogram(aes(fill=firstyear), binwidth=1, col='black') + 
+  facet_wrap(~firstyear) + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## Does class standing play a role?
+
+Does the distribution of drinks consumed change depending on class?
+
+```{r, echo=FALSE}
+favstats(~drinks|firstyear, data=weekendDrinks2)
+```
+
+---
+class: inverse
+
+## On-campus life?
+
+Does the distribution of drinks consumed change depending on whether a student lives off campus?
+
+```{r, echo=FALSE}
+favstats(~drinks|offcampus, data=weekendDrinks2)
+```
+
+---
+class: inverse
+
+## Poisson regression model
+
+```{r}
+model <- glm(drinks~offcampus + sex, family='poisson', 
+             data=weekendDrinks2)
+summary(model)
+```
+
+---
+class: inverse
+
+## Poisson regression model
+
+```{r}
+confint(model)
+```
+
+---
+class: inverse
+
+## Goodness of fit
+
+```{r}
+gof.ts = model$deviance
+gof.pvalue = 1 - pchisq(gof.ts, model$df.residual)
+gof.pvalue
+```
+
+---
+
+## Zero-inflated model
+
+Our explanatory variables don't seem to adequately explain the number of zeros in the data set! What can we do?
+
+--
+
+Build a __zero-inflated Poisson regression model__ to take non-drinkers into account:
+
+- One part models the association, among drinkers, between number of drinks and the predictors.
+- The other part uses a predictor for first-year status to obtain an estimate of the proportion of non-drinkers based on the reported zeros.
+
+---
+
+## Zero-inflated model
+
+$$log(\lambda) = \beta_0 + \beta_1(X_1) + \beta_2(X_2)$$
+
+- $X_1 =$ `off-campus`
+- $X_2 =$ `sex`
+
+--
+
+$$logit(\alpha) = \beta_0 + \beta_1 X_3$$
+
+- $X_3 =$ `firstyear`
+
+---
+
+## Zero-inflated model
+
+$\alpha$ represents the probability of being in the non-drinkers group
+
+$$logit(\alpha) = log \left( \frac{\alpha}{1-\alpha} \right)$$
+
+---
+
+## Mixture model
+
+Zero-inflated models are examples of __mixture models__:
+
+- Observations for one or more groups occur together, and group membership is unknown (_latent variable_)
+
+__Example__: Suppose that, unknown to us, half of the students in our sample are non-drinkers, and the other half follow a $Poisson(\lambda=3)$ distribution. What would this mixture model look like?
+
+---
+
+## Mixture model
+
+```{r}
+n <- 77
+sim.data <- c(rpois(lambda=3, n=ceiling(77/2)),
+              rep(0, floor(77/2)))
+sim.data <- tibble(sim.data)
+head(sim.data)
+```
+
+---
+
+## Mixture model
+
+```{r}
+sim.data %>% ggplot(aes(x=sim.data)) + 
+  geom_histogram(binwidth=1, fill='#66c2a5', col='black')
+```
+
+---
+
+## Mixture model
+
+```{r, echo=FALSE}
+sim.data5 <- c(rpois(lambda=3, n=77-15),
+              rep(0, 15))
+sim.data4 <- c(rpois(lambda=3, n=77-19),
+              rep(0, 19))
+sim.data3 <- c(rpois(lambda=3, n=77-25),
+              rep(0, 25))
+sim.data2 <- c(rpois(lambda=3, n=77-38),
+              rep(0, 38))
+x <- c(sim.data5, sim.data4, sim.data3, sim.data2)
+alpha <- c(rep(1/5, 77), rep(1/4, 77), rep(1/3, 77), rep(1/2, 77))
+
+sim.data <- tibble(x, alpha)
+
+sim.data %>% ggplot(aes(x=x)) + geom_bar( aes(fill=as.factor(alpha)), col='black') + facet_wrap(~alpha) + guides(fill=FALSE) + scale_fill_brewer(palette='Set2')
+```
+
+---
+
+## Mixture model
+
+```{r, echo=FALSE}
+weekendDrinks %>% ggplot(aes(x=drinks)) + 
+  geom_histogram(binwidth=1, fill='#66c2a5', col='black') + 
+  labs(x='Drinks Consumed Last Weekend', y='Count', title='Observed Data')
+```
+
+---
+class: inverse
+
+##  Fitting the model
+
+```{r, warning=FALSE, message=FALSE}
+#install.packages('pscl')
+library(pscl)
+model.zip <- zeroinfl(drinks ~ offcampus + sex | firstyear, 
+         data = weekendDrinks2)
+```
+
+---
+class: inverse
+
+##  Fitting the model
+
+```{r, eval=FALSE}
+model.zip <- zeroinfl(drinks ~ offcampus + sex | firstyear, 
+         data = weekendDrinks2)
+summary(model.zip)
+```
+
+---
+class: inverse
+
+##  Fitting the model
+
+```{r, echo=FALSE}
+summary(model.zip)
+```
+
+---
+
+## Fitted model
+
+$$log(\lambda_i) = 0.7543 + 0.4159(X_1) + 1.0209(X_2)$$
+
+- $X_1 =$ `off-campus`
+- $X_2 =$ `sex`
+
+$$logit(\alpha) = -0.6036 + 1.1364 X_3$$
+
+- $X_3 =$ `firstyear`
+
+---
+class: inverse
+
+## Working with the fitted model
+
+__Example__: Find the estimated chance that a first-year student is a non-drinker.
+
+.can-edit[]
+
+---
+class: inverse
+
+## Working with the fitted model
+
+__Example__: Compare the average number of drinks for males v. females, for those students who drink.
+
+.can-edit[]
+
+---
+
+## Recap: Zero-inflated Poisson model
+
+$$log(\lambda) = \beta_0 + \beta_1X_1)+ \beta_2X_2 + \beta_3 X_3 + ....$$
+
+
+$$logit(\alpha) = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ....$$
+
+- $\beta_i$ and $X_i$ for each layer or level of the model may not be the same
+- $\alpha$ represents the probability that an observation is from the "zero" group 
+
+---
+class: inverse
+
+##  Working with the fitted model
+
+```{r, echo=FALSE}
+summary(model.zip)
+```
+
+---
+class: inverse
+
+## Fitted model
+
+$$log(\lambda_i) = 0.7543 + 0.4159(X_1) + 1.0209(X_2)$$
+
+- $X_1 =$ `off-campus`
+- $X_2 =$ `sex`
+
+$$logit(\alpha) = -0.6036 + 1.1364 X_3$$
+
+- $X_3 =$ `firstyear`
+
+---
+class: inverse
+
+## Working with the fitted model
+
+__Example__: Compare the average number of drinks for males v. females, for those students who drink.
+
+`offcampus=TRUE`:
+
+
+
+---
+class: inverse
+
+## Working with the fitted model
+
+__Example__: Compare the average number of drinks for males v. females, for those students who drink.
+
+`offcampus=FALSE`:
+
+---
+class: inverse
+
+## Working with the fitted model
+
+__Example__: Why are the predictions from the zero-inflated Poisson model _not_ the same as the sample means in the subgroups?
+
+```{r}
+weekendDrinks2 %>% group_by(offcampus, sex) %>% 
+  summarize(mean=mean(drinks)) %>% 
+  spread(sex, mean)
+```
+
+---
+class: inverse
+
+## Residual plots
+
+```{r, echo=-2}
+names(model)
+par(mfrow=c(2, 2))
+plot(model)
+```
+
+---
+class: inverse
+
+## Residual plots
+
+```{r}
+weekendDrinks2 <- weekendDrinks2 %>% 
+  mutate(residuals=model$residuals,
+         fitted.values=model$fitted.values)
+```
+
+---
+class: inverse
+
+## Residual plots
+
+```{r}
+head(weekendDrinks2)
+```
+
+---
+class: inverse
+
+## Residual plots
+
+```{r}
+weekendDrinks2 %>% ggplot(aes(x=fitted.values, y=residuals)) + 
+  geom_point() + labs(x='Fitted Values', y='Residuals')
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+__Example__: The data set NMES1988 in the AER package contains a sample of individuals over 65 who are covered by Medicare in order to assess the demand for health care through physician office visits, outpatient visits, ER visits, hospital stays, etc.
+
+```{r, warning=FALSE, message=FALSE}
+library(AER)
+data(NMES1988)
+names(NMES1988)
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+NMES1988 %>% ggplot(aes(x=chronic)) + 
+  geom_histogram(binwidth=1, fill='#66c2a5', col='black')
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+NMES1988 %>% ggplot(aes(x=health)) + 
+  geom_bar(aes(fill=health)) + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+NMES1988 %>% ggplot(aes(x=insurance)) + 
+  geom_bar(aes(fill=insurance)) + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+NMES1988 %>% ggplot(aes(x=visits)) + 
+  geom_histogram(fill='#66c2a5', col='black')
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+favstats(~visits, data=NMES1988)
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r}
+model <- zeroinfl(visits ~ chronic + health  + insurance|
+                    chronic + insurance, data=NMES1988) 
+model
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+![](ZIP-1.png)
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+1. Why would number of chronic conditions (`chronic`) and health insurance status affect whether or not a patient does not visit a doctor?
+2. Find the probability that someone with no chronic conditions and health insurance is in the "no visits" group.
+3. Find the probability that someone with three chronic conditions and no health insurance is in the "no visits" group.
+4. Find the probability that someone with three chronic conditions and health insurance is in the "no visits" group.
+5. For someone in poor health, with three chronic conditions and health insurance, how many doctor visits would we predict?
+6. For someone in excellent health, with no chronic conditions and health insurance, how many doctor visits would we predict?
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+Why would number of chronic conditions (`chronic`) and health insurance status affect whether or not a patient does not visit a doctor?
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+Find the probability that someone with no chronic conditions and health insurance is in the "no visits" group.
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+Find the probability that someone with three chronic conditions and no health insurance is in the "no visits" group.
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+Find the probability that someone with three chronic conditions and health insurance is in the "no visits" group.
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+For someone in poor health, with three chronic conditions and health insurance, how many doctor visits would we predict?
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+For someone in excellent health, with no chronic conditions and health insurance, how many doctor visits would we predict?
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+```{r, echo=FALSE}
+NMES1988_2 <- NMES1988 %>% 
+  mutate(residuals=model$residuals,
+         fitted.values=model$fitted.values)
+
+NMES1988_2 %>% ggplot(aes(x=fitted.values, y=residuals)) + 
+  geom_point() + labs(x='Fitted Values', y='Residuals')
+```
+
+---
+
+## Vuong test
+
+Is this model a _statistically significant_ improvement over a non-zero inflated Poisson model? Use a __Vuong test__:
+
+```{r, eval=FALSE}
+poisson_model <- glm(visits ~ chronic + health  + insurance, 
+                     family='poisson', data=NMES1988) 
+zip_model <- zeroinfl(visits ~ chronic + health  + insurance|
+                    chronic + insurance, data=NMES1988) 
+vuong(poisson_model, zip_model)
+```
+
+---
+class: inverse
+
+## Case study: US medical spending
+
+Is this model a _statistically significant_ improvement over a non-zero inflated Poisson model? Use a __Vuong test__:
+
+```{r, echo=FALSE}
+poisson_model <- glm(visits ~ chronic + health  + insurance, 
+                     family='poisson', data=NMES1988) 
+zip_model <- zeroinfl(visits ~ chronic + health  + insurance|
+                    chronic + insurance, data=NMES1988) 
+vuong(poisson_model, zip_model)
+```

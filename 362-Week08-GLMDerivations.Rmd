@@ -1,0 +1,99 @@
+---
+title: 'Generalized Linear Models (GLMs)'
+subtitle: 'Model Derivations'
+author: "MTH 362: Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+output: 
+  pdf_document
+header-includes:
+- |
+  ```{=latex}
+  \usepackage[default]{sourcesanspro}
+  \usepackage[T1]{fontenc}
+  ```
+---
+
+For each distribution,
+
+- Write the pdf in one parameter exponential form, if possible.
+- Describe an example of a setting where this random variable might be used.
+- Identify the canonical link function, and
+- Compute $\mu = -\frac{c'(\theta)}{b'(\theta)}$ and $\sigma^2 = \frac{b''(\theta)c'(\theta)-c''(\theta)b'(\theta)}{[b'(\theta)]^3}$ and compare with known $E(Y)$ and $V(Y)$.
+
+a) Binary: Y = 1 for a success, 0 for a failure
+
+  \[p(y)=p^{y}(1-p)^{(1-y)}
+  \]
+
+\vfill
+
+b) Binomial (for fixed $n$): Y = number of successes in $n$ independent, identical trials
+
+  \[p(y)=\left(\begin{array} {c}  n\\y  \end{array}\right) p^y(1-p)^{(n-y)}
+  \]
+ 
+\vfill
+
+\pagebreak
+
+c) Poisson: Y = number of events occurring in a given time (or space) when the average event rate is $\lambda$ per unit of time (or space)
+
+  \[
+  P(Y=y)=\frac{e^{-\lambda}\lambda^y}{y!}
+  \]
+
+\vfill
+
+d) Normal (with fixed $\sigma$ -- could set $\sigma=1$ without loss of generality)
+
+  \[f(y; \mu)=\frac{1}{\sqrt{2\pi\sigma^2}}e^{-{(y-\mu)^2}/{(2\sigma^2)}}\]
+
+\vfill
+
+\pagebreak
+
+e) Normal (with fixed $\mu$ -- could set $\mu=0$ without loss of generality)
+
+  \[f(y; \sigma)=\frac{1}{\sqrt{2\pi\sigma^2}}e^{-{(y-\mu)^2}/{(2\sigma^2)}}\]
+
+\vfill
+
+
+f) Exponential: Y = time spent waiting for the first event in a Poisson process with an average rate of $\lambda$ events per unit of time
+
+  \[f(y)=\lambda e^{-\lambda y}\]
+
+\vfill
+
+\pagebreak
+
+g) Gamma (for fixed $r$): Y = time spent waiting for the $r^{th}$ event in a Poisson process with an average rate of $\lambda$ events per unit of time
+
+  \[f(y; \lambda) = \frac{\lambda^r}{\Gamma(r)} y^{r-1} e^{-\lambda y}\]
+
+\vfill
+
+
+h) Geometric: Y = number of failures before the first success in a Bernoulli process
+
+  \[p(y)=(1-p)^{y}p\]
+
+\vfill
+
+\pagebreak
+
+i) Negative Binomial (for fixed $r$): Y = number of failures prior to the $r^{th}$ success in a Bernoulli process
+
+\begin{eqnarray}
+p(y; r) & = & \left(\begin{array} {c}  y+r-1\\r-1  \end{array}\right)(1-p)^{y}p^r \nonumber \\
+ & = & \frac{\Gamma(y+r)}{\Gamma(r)y!} (1-p)^{y}p^r  \\
+\end{eqnarray}
+
+\vfill
+
+
+j) Pareto (for fixed $k$): 
+
+  \[f(y; \theta)=\frac{\theta k^\theta}{y^{(\theta+1)}}\quad \textrm{for}\quad y\geq k; \theta \geq 1\]
+
+\vfill

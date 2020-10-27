@@ -1,0 +1,316 @@
+---
+title: 'Week 5: Poisson Regression'
+subtitle: 'What should residual plots look like?'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=FALSE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+## Let's find out
+
+Simulate data under two models:
+
+1. Traditional Poisson
+2. Zero-inflated Poisson
+
+What do the residual plots look like?
+
+---
+
+## Traditional Poisson
+
+Consider two explanatory variables, $X_1, X_2$. 
+
+$$\eta = \ln(\lambda) = \beta_0 + \beta_1 X_1 + \beta_2 X_2$$
+
+$$\hat{Y} = e^{\eta}$$
+
+Parameters|Simulation 1|Simulation 2
+---|---|----|---
+$\beta_0$|0|1
+$\beta_1$|0.25|0.25
+$\beta_2$|0.5|-0.5
+
+We'll let $X_1 \sim Uniform(0, 5)$ and $X_2 \sim Uniform(0, 5)$.
+
+---
+
+## Traditional Poisson: $X_1, X_2$
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+library(tidyverse)
+library(patchwork)
+x1 <- runif(200, min=0, max=5)
+x2 <- runif(200, min=0, max=5)
+
+data <- tibble(x1,x2)
+p1 <- data %>% ggplot(aes(x=x1)) + geom_histogram(binwidth=0.5)
+p2 <- data %>% ggplot(aes(x=x2)) + geom_histogram(binwidth=0.5)
+
+p1+p2
+```
+
+---
+
+## Traditional Poisson: $X_1, X_2$
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(patchwork)
+x1 <- runif(200, min=0, max=5)
+x2 <- runif(200, min=0, max=5)
+
+data <- tibble(x1,x2)
+p1 <- data %>% ggplot(aes(x=x1)) + geom_histogram(binwidth=1, fill='#66c2a5', col='black')
+p2 <- data %>% ggplot(aes(x=x2)) + geom_histogram(binwidth=1, fill='#66c2a5', col='black')
+
+p1+p2
+```
+
+$$\eta = \ln(\lambda) = 0+0.25 X_1 + 0.5 X_2$$
+
+- Minimimum/maximum values for $\eta$?
+
+---
+
+## Traditional Poisson: $X_1, X_2$
+
+```{r, echo=FALSE}
+p1+p2
+```
+
+- Minimum/maximum values for $\lambda$?
+
+---
+
+## Traditional Poisson: simulation
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+```{r, echo=FALSE}
+beta0 <- 0
+beta1 <- 0.25
+beta2 <- 0.5
+
+eta <- beta0 + beta1*x1 + beta2*x2 
+y <- rpois(n=200, lambda=exp(eta))
+
+data <- tibble(x1,x2,eta,y)
+
+p1 <- data %>% ggplot(aes(x=x1, y=y)) + geom_point(col="#66c2a5") + geom_smooth(method='lm', se=FALSE)
+p2 <- data %>% ggplot(aes(x=x2, y=y)) + geom_point(col="#66c2a5") + geom_smooth(method='lm', se=FALSE)
+p1+p2
+```
+
+---
+
+## Traditional Poisson: simulation
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+```{r, echo=FALSE}
+p1 <- data %>% ggplot(aes(x=x1, y=log(y))) + geom_point(col="#66c2a5")  + geom_smooth(method='lm', se=FALSE)
+p2 <- data %>% ggplot(aes(x=x2, y=log(y))) + geom_point(col="#66c2a5")  + geom_smooth(method='lm', se=FALSE)
+p1+p2
+```
+
+---
+
+## Traditional Poisson: model check
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+```{r}
+model <- glm(y ~ x1 + x2, data=data, family='poisson')
+summary(model)
+```
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+```{r, echo=FALSE}
+data <- data %>% mutate(fitted = model$fitted.values,
+                        residuals = model$residuals)
+resid1 <- data %>% ggplot(aes(x=fitted, y=residuals)) + geom_point(col="#66c2a5") + labs(x='Fitted values', y='Residuals')
+resid2 <- data %>% ggplot(aes(sample=residuals)) + stat_qq(col="#66c2a5") + stat_qq_line()
+resid1 + resid2
+```
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+> _What's different about the default residual plots_?
+
+```{r, fig.width=8, fig.height=8, echo=FALSE}
+par(mfrow=c(2,2))
+plot(model)
+```
+
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 1: $\beta_0=0, \beta_1=0.25, \beta_2=0.5$
+
+```{r, echo=FALSE}
+data %>% ggplot(aes(x=fitted, y=y)) + geom_point(col="#66c2a5") + labs(x='Fitted values', y='Observed values')
+```
+
+---
+
+## Traditional Poisson: simulation
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=-0.5$
+
+```{r, echo=FALSE}
+beta0 <- 1
+beta1 <- 0.25
+beta2 <- -0.5
+
+eta <- beta0 + beta1*x1 + beta2*x2
+y <- rpois(n=200, lambda=exp(eta))
+
+data2 <- tibble(x1,x2,eta,y)
+
+p3 <- data2 %>% ggplot(aes(x=x1, y=y)) + geom_point(col="#fc8d62")
+p4 <- data2 %>% ggplot(aes(x=x2, y=y)) + geom_point(col="#fc8d62")
+p3+p4
+```
+
+---
+
+## Traditional Poisson: simulation
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=-0.5$
+
+```{r, echo=FALSE}
+p3 <- data2 %>% ggplot(aes(x=x1, y=log(y))) + geom_point(col="#fc8d62")
+p4 <- data2 %>% ggplot(aes(x=x2, y=log(y))) + geom_point(col="#fc8d62")
+p3+p4
+```
+
+---
+
+## Traditional Poisson: model check
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=-0.5$
+
+```{r}
+model2 <- glm(y ~ x1 + x2, data=data2, family='poisson')
+summary(model2)
+```
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=-0.5$
+
+```{r, echo=FALSE}
+data2 <- data2 %>% mutate(fitted = model2$fitted.values,
+                        residuals = model2$residuals)
+resid3 <- data2 %>% ggplot(aes(x=fitted, y=residuals)) + geom_point(col="#fc8d62") + labs(x='Fitted values', y='Residuals')
+resid4 <- data2 %>% ggplot(aes(sample=residuals)) + stat_qq(col="#fc8d62") + stat_qq_line()
+resid3+resid4
+```
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=-0.5$
+
+```{r, fig.width=8, fig.height=8, echo=FALSE}
+par(mfrow=c(2,2))
+plot(model2)
+```
+
+---
+
+## Traditional Poisson: residual plots
+
+Simulation 2: $\beta_0=1, \beta_1=0.25, \beta_2=0.5$
+
+```{r, echo=FALSE}
+data2 %>% ggplot(aes(x=fitted, y=y)) + geom_point(col="#fc8d62") + labs(x='Fitted values', y='Observed values')
+```
+
+---
+
+## Takeaways
+
+1. Residuals in a Poisson model will _not_ be normally distributed
+
+2. Some weird things can happen in the residual plots
+
+3. Depending on the function you use, the scale might change!
+
+
+
+
+
+
+
+

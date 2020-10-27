@@ -1,0 +1,690 @@
+---
+title: 'Week 3: Model Selection and Evaluation'
+#subtitle: 'Ch. 1: Introduction to Data'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+class: inverse
+
+## Learning objectives
+
+---
+
+## LINE assumptions (recap)
+
+In the last section, we reviewed the conditions for inference in linear regression: __LINE__.
+
+- __L__: There is a _linear_ relationship between the mean response $Y$ and the explanatory variable $X$.
+- __I__: The errors are _independent_. In other words, there is no relationship between how far any two points fall from the regression line.
+- __N__: The response variable is _normally_ distributed at each level of $X$.
+- __E__: The _error_ variance, or equivalently, the standard deviation of the responses is equal for all levels of $X$.
+
+Before we introduce some new models, we should talk about model selection and evaluation. 
+
+---
+
+## Model selection and purpose
+
+Choosing which explanatory variables to include in a statistical model is a non-trivial task. We want to find the proper balance between a model that includes _everything_ and a model that doesn't include enough.
+
+--
+
+Our approach might depend on what the model will eventually be used for. Do we want to:
+
+1. _Describe_ the relationship between multiple explanatory variables and response variables?
+
+2. _Make predictions_ for new observations and generalize to the entire population?
+
+3. _Confirm_ a theory about relationship(s) between variable(s) in the model?
+
+--
+
+Sometimes it's a little of everything.
+
+---
+class: inverse
+
+## Model selection and purpose
+
+__Example__: Many college courses conclude by giving students the opportunity to evaluate the course and the instructor anonymously. However, the use of these student evaluations as an indicator of course quality and teaching effectiveness is often criticized because these measures may reflect the influence of non-teaching related characteristics, such as the physical appearance of the instructor. 
+
+A 2005 article titled, _“Beauty in the classroom: instructors’ pulchritude and putative pedagogical productivity”_ (Hamermesh and Parker) found that instructors who are viewed to be better looking receive higher instructional ratings.
+
+```{r}
+download.file("http://www.openintro.org/stat/data/evals.RData", 
+              destfile = "evals.RData")
+load("evals.RData")
+```
+
+The data were gathered from end of semester student evaluations for a large sample of professors from the University of Texas at Austin. In addition, six students rated the professors’ physical appearance using their campus webpage. 
+
+---
+class: inverse
+
+## Model selection and purpose
+
+Variables in this data include:
+
+- `score`: average professor evaluation score: (1) very unsatisfactory - (5) excellent.
+- `rank`: rank of professor: teaching, tenure track, tenured.
+- `ethnicity`: ethnicity of professor: not minority, minority.
+- `gender`: gender of professor: female, male.
+- `language`: language of school where professor received education: english or non-english.
+- `age`: age of professor.
+- `cls_perc eval`: percent of students in class who completed evaluation.
+- `cls_did_eval`: number of students in class who completed evaluation.
+- `cls_students`: total number of students in class.
+- `cls_level`: class level: lower, upper.
+- `cls_profs`: number of professors teaching sections in course in sample: single, multiple.
+- `cls_credits`: number of credits of class: one credit (lab, PE, etc.), multi credit.
+
+---
+class: inverse
+
+## Model selection and purpose
+
+Variables in this data include:
+
+- `bty_f1lower`: beauty rating of professor from lower level female: (1) lowest - (10) highest.
+- `bty_f1upper`: beauty rating of professor from upper level female: (1) lowest - (10) highest.
+- `bty_f2upper`: beauty rating of professor from second level female: (1) lowest - (10) highest.
+- `bty_m1lower`: beauty rating of professor from lower level male: (1) lowest - (10) highest.
+- `bty_m1upper`: beauty rating of professor from upper level male: (1) lowest - (10) highest.
+- `bty_m2upper`: beauty rating of professor from second upper level male: (1) lowest - (10) highest.
+- `bty_avg`: average beauty rating of professor.
+- `pic_outfit`: outfit of professor in picture: not formal, formal.
+- `pic_color`: color of professor’s picture: color, black & white.
+
+
+---
+class: inverse
+
+## Model selection and purpose
+
+Describe the distribution of average professor evaluation score.
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+evals %>% ggplot(aes(x=score)) + 
+  geom_density(fill='blue', alpha=0.5)
+```
+
+---
+class: inverse
+
+## Model selection and purpose
+
+The central research question in this study was whether more attractive teachers are rated more favorably. Build and evaluate a simple linear regression model to investigate this phenomenon.
+
+```{r}
+model.simple <- lm(score ~ bty_avg, data=evals)
+summary(model.simple)
+```
+
+--
+
+This model explains approximately 3.5% of the variance in teaching evaluation scores. We might be able to improve the model by including more variables! But, how do we choose which ones?
+
+---
+
+## Stepwise regression
+
+__Stepwise regression__ is a set of algorithmic approaches to selecting a model. Either start simple and add terms, or start complex and subtract terms.
+
+- `r emo::ji("danger")` Stepwise regression algorithms are often criticized for resulting in biased models. 
+
+---
+
+## Forward selection
+
+1. Fit all possible single variable regression models.
+2. Choose the single explanatory that "best" explains the response, call it $X_1$.
+3. Fit all possible two variable models that include $X_1$.
+4. Choose the new two explanatory variables that together "best" explain the response, $X_1$ and (new) $X_2$.
+5. Keep adding variables until the model can't be improved further.
+
+---
+
+## Backward selection
+
+1. Fit the multiple regression model with all possible explanatory variables.
+2. Find the explanatory variable that contributes the least to the model, and remove it.
+3. Refit the multiple regression model, and again look for the explanatory variable that contributes the least.
+4. When all variables in the model are "important", stop.
+
+---
+
+## Variable selection criteria
+
+What makes a model "best"? Some options include:
+
+- $R^2$: percent of variability in $Y$ explained by the model. In multiple linear regression, this is the squared correlation between the predicted values $\hat{Y}_i$ and observed values $Y_i$.
+
+--
+
+- Adjusted $R^2$: adjusted $R^2$ penalizes models with more explanatory variables. 
+
+$$R^2_{adj} = 1 - \frac{n-1}{n-k}(1-R^2)$$
+
+--
+
+Akaike's Information Criterion: smaller is better.
+
+$$AIC = n[log(\hat{\sigma}^2)]+2k$$
+
+--
+
+Bayesian Information Criterion: smaller is better.
+
+$$BIC = n[log(\hat{\sigma}^2)]+k\times log(n)$$
+
+--
+
+Unlike $R^2$, $AIC$ and $BIC$ are not absolute measures. 
+
+---
+class: inverse
+
+## Fitting the extended model
+
+We can fit all variables in a linear model using the following syntax:
+
+`lm(Y ~ . , data=data)`
+
+Which variables are "statistically significant" in the model?
+
+```{r}
+model.all <- lm(score ~ ., data=evals)
+summary(model.all)
+```
+
+---
+class: inverse
+
+## Fitting the extended model
+
+Interpret the coefficients for each. Which variables have positive or negative effects on teaching evaluations?
+
+```{r}
+model.all
+```
+
+---
+class: inverse
+
+## Comparing models
+
+```{r}
+library(jtools)
+plot_summs(model.all, model.simple)
+```
+
+---
+class: inverse
+
+## Comparing models
+
+Have we improved the $R^2$? By how much?
+
+```{r}
+# Another summary function from jtools
+summ(model.all)
+```
+
+---
+class: inverse
+
+## Comparing models
+
+Have we improved the $R^2$? By how much?
+
+```{r}
+summ(model.simple)
+```
+
+--
+
+- `model.all`: $R^2=0.21$
+- `model.simple`: $R^2=0.04$
+
+---
+class: inverse
+
+## Backward selection
+
+The output that gets produced is... extensive.
+
+```{r}
+step(model.all, direction='backward')
+```
+
+---
+class: inverse
+
+## Backward selection
+
+What's the "best" model?
+
+```{r}
+model.backward <- lm(score ~ rank + ethnicity + gender + language + age + 
+    cls_perc_eval + cls_credits + bty_f1lower + bty_f1upper + 
+    bty_f2upper + bty_avg + pic_outfit + pic_color, data = evals)
+```
+
+---
+class: inverse
+
+## Forward selection
+
+We need to start with a "null model" (no explanatory variables), then add one at a time. 
+
+What do you think `score ~ 1` does? Why this syntax?
+
+```{r}
+model.null <- lm(score ~ 1, data=evals)
+step(model.null, direction='forward', 
+     scope=(~rank+ethnicity+gender+language+age+cls_perc_eval+
+              cls_did_eval+cls_students+cls_level+cls_profs+
+              cls_credits+bty_f1lower+bty_f1upper+bty_f2upper+
+              bty_m1lower+bty_m1upper+bty_m2upper+bty_avg+
+              pic_outfit+pic_color))
+```
+
+---
+class: inverse
+
+## Forward selection
+
+Again, what's the best model?
+
+```{r}
+model.forward <- lm(formula = score ~ cls_credits + bty_f1upper + gender + pic_color + 
+    language + cls_perc_eval + ethnicity + bty_m2upper + bty_f2upper, 
+    data = evals)
+```
+
+---
+class: inverse
+
+## Comparing models
+
+Which terms are shared between models? (Model 1 = backward, Model 2 = forward) How do the coefficients compare?
+
+```{r, echo=FALSE}
+plot_summs(model.backward, model.forward)
+```
+
+---
+class: inverse
+
+## Choosing a model
+
+Which model do we choose? Explain your reasoning.
+
+
+__Backward selection__:
+
+```{r}
+summary(model.backward)$r.squared
+summary(model.backward)$adj.r.squared
+AIC(model.backward)
+BIC(model.backward)
+```
+
+---
+class: inverse
+
+## Choosing a model
+
+Which model do we choose? Explain your reasoning.
+
+__Forward selection__:
+
+```{r}
+summary(model.forward)$r.squared
+summary(model.forward)$adj.r.squared
+AIC(model.forward)
+BIC(model.forward)
+```
+
+---
+
+## Problems with single direction selection
+
+There are some major drawbacks to using single-direction techniques.
+
+1. Once a variable is removed/added, it's place in the model is fixed. In some situations, it might be advantageous to re-add or remove a variable from the model.
+
+--
+
+2. $R^2$, $AIC$, $BIC$, and other selection criterion are biased higher or lower.
+
+--
+
+3. The standard errors of the parameter estimates are too small - leading to narrow confidence intervals around the slope coefficients $\beta_i$.
+
+--
+
+4. Similarly, p-values are too low.
+
+--
+
+5. Collinearity problems are exacerbated.
+
+---
+
+## Multicollinearity (aka collinearity)
+
+__Multicollinearity__: high correlation between variables in a linear regression model. When explanatory variables are highly correlated, it's difficult to tease out which variable(s) (if any) are truly responsible for changes in the response variable.
+
+--
+
+1. For each variable $X_i$, set it as the response variable and re-fit the model. 
+2. Calculate the __variance inflation factor__ ($VIF$) as:
+
+$$VIF_i = \frac{1}{1-R^2_i}$$
+
+---
+
+## Interpreting VIF
+
+$$VIF_i = \frac{1}{1-R^2_i}$$
+
+What $VIF$ values would indicate a strong relationship between $X_i$ and the other explanatory variables?
+
+--
+
+What $VIF$ values would indicate a weak or no relationship between $X_i$ and the other explanatory variables?
+
+---
+class: inverse
+
+## Calculating VIF
+
+The `vif` function from the `car` library will calculate the variance inflation factor.
+
+```{r, warning=FALSE, message=FALSE}
+library(car)
+vif(model.forward)
+```
+
+
+Do any of the variables in this model concern you? Explain your reasoning.
+
+---
+class: inverse
+
+## Calculating VIF
+
+Let's look at the backward selected model. 
+
+```{r}
+vif(model.backward)
+```
+
+Why is the output different? If all terms in an unweighted linear model have 1 df (degree of freedom), then the usual variance-inflation factors are calculated. 
+
+- Numerical variables will by default have 1 df.
+- Categorical variables will have $c-1$ df, where $c$ is the number of categories.
+
+---
+
+## Generalized VIF
+
+
+If any terms in an unweighted linear model have more than 1 df, then _generalized variance-inflation factors_ (Fox and Monette, 1992) are calculated. 
+
+- These represent the inflation in size of the confidence ellipse or ellipsoid for the coefficients of the term in comparison with what would be obtained for orthogonal data.
+
+The same basic idea applies - large $GVIF$ indicates variables that are strongly related to other explanatory variables.
+
+---
+class: inverse
+
+## Generalized VIF
+
+```{r}
+vif(model.backward)
+```
+
+1. Which variable(s) do you think is(are) responsible for needing to use $GVIF$?
+
+2. Which variable(s) have problems with multicollinearity? Can you explain why?
+
+3. Which variable(s) should we keep/discard? Be prepared to explain your reasoning.
+
+
+---
+
+## Best subsets selection
+
+This is exactly what it sounds like. __Best subsets regression__ finds the best model for any subset of up to 8 variables in the model. 
+
+- This is just an R convention - more can be done, but it gets tedious.
+
+--
+
+- The `regsubsets` function in the `leaps` library implements this. 
+
+Again - the output is not great. 
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r, results='hide'}
+library(leaps)
+model.subsets <- regsubsets(score ~ ., data=evals, nbest=2)
+summary(model.subsets)
+```
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r, fig.height=6}
+plot(model.subsets)
+```
+
+By default, `regsubsets` uses $BIC$. Does the "best" model change if we use a different criterion?
+
+BIC "best" model:
+
+---
+class: inverse
+
+## Best subsets selection
+
+```{r, fig.height=6}
+plot(model.subsets, scale='adjr2')
+```
+
+Adjusted $R^2$ "best" model:
+
+---
+
+## Evaluating the final model
+
+Once you've chosen your final multiple regression model, there are some steps you should take.
+
+1. Interpret the model. Do the final variables "make sense" in context?
+
+--
+
+2. Evaluate the LINE assumptions. Does the model actually meet the conditions?
+
+--
+
+3. Check for multicollinearity, and potentially reassess variables.
+
+---
+class: inverse
+
+## Evaluating the final model
+
+Let's take the best subsets model with the highest adjusted $R^2$ as our final model.
+
+`score ~ ethnicity + gender + language + cls_perc_eval +  cls_credits + bty_f1upper + bty_avg + pic_color`
+
+```{r}
+final.model <- lm(score ~ ethnicity + gender + language + cls_perc_eval + cls_credits + bty_f1upper + bty_avg + pic_color, data=evals)
+summary(final.model)
+```
+
+---
+class: inverse
+
+## Evaluating the final model
+
+Which variables in the model are "statistically significant"?
+Are there any variables that you suspect might be correlated to one another?
+
+```{r}
+summ(final.model)
+```
+
+---
+class: inverse
+
+## Evaluating the final model
+
+Check the LINE assumptions: 
+
+```{r, echo=-1, fig.height=5}
+par(mfrow=c(2, 2))
+plot(final.model)
+```
+
+---
+class: inverse
+
+## Evaluating the final model
+
+Look for problems with multicollinearity:
+
+```{r}
+vif(final.model)
+```
+
+Not surprisingly, `bty_f1upper` and `bty_avg` are both inflating the variance. Which should we keep?
+
+---
+class: inverse
+
+## Evaluating the final model
+
+`score ~ ethnicity + gender + language + cls_perc_eval +  cls_credits + bty_avg + pic_color`
+
+```{r}
+final.model2 <- lm(score ~ ethnicity + gender + language + cls_perc_eval + 
+                     cls_credits +  bty_avg + pic_color, data=evals)
+summary(final.model2)
+```
+
+---
+class: inverse
+
+## Evaluating the final model
+
+Did deleting `bty_f1upper` negatively impact the model fit?
+
+```{r, echo=-1, fig.height=5}
+par(mfrow=c(2,2))
+plot(final.model2)
+vif(final.model2)
+```
+
+---
+class: inverse
+
+## Interpreting the model
+
+Based on our fitted model, we can conclude:
+
+- `ethnicity`: Being non-minority has a positive effect on mean teaching evaluation score
+- `gender`: Being male has a positive effect on mean teaching evaluation score
+- `language`: Speaking English as your second language has a negative effect on mean teaching evaluation score
+- `cls_perc_eval`: Having more students complete the evaluation has positive effect on mean teaching evaluation score
+- `cls_credit`: Teaching a one-credit course (i.e. lab) has a positive effect on mean teaching evaluation score
+- `bty_avg`: Higher average beauty scores have a positive effect on mean teaching evaluation score
+- `pic_color`: Having a color photo has a negative effect on mean teaching evaluation score
+
+In a multiple linear regression model, plotting all explanatory variables against the response simultaneously is impossible. But, we can usually get a few variables plotted together.
+
+---
+
+## Interpreting model effects
+
+Using the plot below, describe how average beauty, gender, ethnicity, and language impact average teaching evaluations. Comment on the variability of the data and the number of observations in each subcategory.
+
+```{r, echo=FALSE}
+evals %>% ggplot(aes(x=bty_avg, y=score)) + 
+  geom_point(aes(col=gender, pch=ethnicity)) + 
+  facet_wrap(.~language) + 
+  labs(x='Average Beauty Score', y='Average Evaluation Score') + 
+  guides(pch=guide_legend('Ethnicity'), col=guide_legend('Gender')) + 
+  scale_color_brewer(palette='Paired')
+```
+
+
+
+
+

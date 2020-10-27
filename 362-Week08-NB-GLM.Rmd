@@ -1,0 +1,325 @@
+---
+title: 'Week 8: Generalized Linear Models'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+![R Documentation for `glm.nb()`](glmnb_help.png)
+
+---
+
+## `glm.nb()` documentation
+
+__References__
+
+Venables, W. N. and Ripley, B. D. (2002) Modern Applied Statistics with S. Fourth edition. Springer.
+
+---
+
+## Venables and Ripley (2002)
+
+![Negative binomial as defined by Venables & Ripley](venables_nb.png)
+
+---
+
+## Alternative parameterizations
+
+Our parameterization from class:
+
+$$P(Y=y)={y+r-1 \choose r-1}(1-p)^{y}(p)^{r}$$
+
+$$E(Y)=\frac{r(1-p)}{p}$$
+
+$$V(Y) = \frac{r(1-p)}{p^2}$$
+
+---
+
+## Alternative parameterizations
+
+Venables & Ripley (2002):
+
+$$P(y) = \frac{\Gamma(\theta + y)}{\Gamma(\theta) y!} \frac{\mu^y \theta^\theta}{(\mu+\theta)^{\theta+y}}$$
+
+$$E(Y)=\mu$$
+
+$$V(Y) = \mu + \frac{\mu^2}{\theta}$$
+
+---
+
+## Alternative parameterizations
+
+__Example__: How are $\mu$ and $\theta$ related to $r$ and $p$?
+
+Expected value|Variance
+---|---
+$E(Y)=\mu$| $V(Y) = \mu + \frac{\mu^2}{\theta}$
+$E(Y)=\frac{r(1-p)}{p}$| $V(Y) = \frac{r(1-p)}{p^2}$
+
+---
+
+## Which parameterization?
+
+.pull-left[
+
+In terms of $r, p$...
+
+- R default parameterization
+
+![`rnbinom()` documentation](nbinom_R.png)
+
+- Easier to express as an exponential family
+]
+
+--
+
+.pull-right[
+
+In terms of $\mu, \theta$...
+
+- (Surprisingly) easier to estimate using maximum likelihood
+]
+
+---
+
+## Interpretation
+
+Do _any_ of the parameters have a convenient interpretation when we're using the negative binomial to model count data?
+
+--
+
+![](https://media.giphy.com/media/sRGUoEavskkJnoPozL/giphy.gif)
+
+---
+
+## Predicted values
+
+1. Are we predicting for a value in our data set?
+
+```{r, eval=FALSE}
+model$fitted.values
+```
+
+2. Are we predicting for a value _not_ in our data set?
+
+```{r, eval=FALSE}
+predict()
+```
+
+---
+class: inverse
+
+## Predicted values
+
+__Example__: Generate a hypothetical negative binomial data set.
+
+```{r}
+set.seed(362)
+r <- 3
+x <- seq(from=1, to=10, length=100)
+p <- 0.1*x
+mean <- r*(1-p)/p
+y <- rnbinom(n=100, size=r, prob=p)
+```
+
+---
+class: inverse
+
+## Predicted values
+
+__Example__: Generate a hypothetical negative binomial data set.
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+library(tidyverse)
+data <- tibble(x, y, mean)
+data %>% ggplot(aes(x=x, y=y)) + 
+  geom_point() + 
+  geom_line(aes(x=x, y=mean), col='#377eb8')
+```
+
+---
+class: inverse
+
+## Predicted values
+
+__Example__: Generate a hypothetical negative binomial data set.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+data <- tibble(x, y, mean)
+data %>% ggplot(aes(x=x, y=y)) + geom_point() + geom_line(aes(x=x, y=mean), col='red')
+```
+
+---
+class: inverse
+
+## Predicted values
+
+__Example__: Fit a model to the hypothetical data.
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+library(MASS)
+model <- glm.nb(y ~ x, data=data)
+summary(model)
+```
+
+---
+class: inverse
+
+# 
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(MASS)
+model <- glm.nb(y ~ x, data=data)
+summary(model)
+```
+
+---
+class: inverse
+
+## Predicted values
+
+First, set up a data set with "new values". This should be the same structure as your original data set.
+
+```{r}
+head(data)
+```
+
+---
+class: inverse
+
+## Predicted values
+
+First, set up a data set with "new values". This should be the same structure as your original data set.
+
+```{r}
+x <- c(1.1, 1.2, 1.3, 1.363636)
+y <- c(24, 20, 15, 16)
+mean <- c(1, 2, 3, 4)
+new_data <- tibble(x, y, mean)
+head(new_data)
+```
+
+---
+class: inverse
+
+## Predicted values
+
+```{r}
+predict(model, newdata = new_data)
+```
+
+--
+
+Are these on the __link scale__ or the __data scale__?
+
+---
+class: inverse
+
+# 
+
+![`predict.glm()` documentation](predict_glm.png)
+
+---
+class: inverse
+
+## Predicted values
+
+```{r}
+predict(model, newdata = new_data,
+        type='response') #<<
+```
+
+---
+class: inverse
+
+## Predicted values
+
+```{r}
+model$fitted.values[1:4]
+```
+
+---
+class: inverse
+
+## Evaluating the model
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+data <- data %>% mutate(preds = model$fitted.values)
+data %>% ggplot(aes(x=x, y=y)) + 
+  geom_point() + 
+  geom_line(aes(x=x, y=mean), col='red') + 
+  geom_line(aes(x=x, y=preds), 
+            col='blue', linetype=2)
+```
+
+---
+class: inverse
+
+## Evaluating the model
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+data2 <- data %>% mutate(preds = model$fitted.values)
+data2 %>% ggplot(aes(x=x, y=y)) + 
+  geom_point() + 
+  geom_line(aes(x=x, y=mean), col='red') + 
+  geom_line(aes(x=x, y=preds), col='blue', linetype=2)
+```
+

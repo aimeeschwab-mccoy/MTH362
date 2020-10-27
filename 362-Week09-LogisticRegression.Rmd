@@ -1,0 +1,553 @@
+---
+title: 'Week 9: Logistic Regression'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+class: inverse
+
+## Case study: Heart disease
+
+__Example__: What variables affect a person's chance of developing heart disease? The Western Collaborative Group Study (Rosenman et al., 1975) was one of the earliest studies investigating this question.
+
+In 1960, 3154 healthy men aged 39 to 59 living in the San Francisco area were recruited to particpate in the study. At the beginning, none of the men suffered from heart disease. During a follow-up visit in 1968-1969, researchers recorded whether the men now suffered from heart disease, as well as other variables.
+
+```{r, message=FALSE, warning=FALSE}
+library(faraway)
+library(tidyverse)
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+```{r}
+data(wcgs)
+head(wcgs)
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+Variable|Description
+--------|-----------------------------------------------------------
+`age`|Age in years
+`height`|Height in inches
+`weight`|Weight in pounds
+`sdp`|Systolic blood pressure in mm Hg
+`dbp`|Diastolic blood pressure in mm Hg
+`chol`|Fasting serum cholesterol in mm %
+`behave`|Behavior type which is a factor with levels "A1", "A2", "B3", "B4",
+`cigs`|Number of cigarettes smoked per day
+`dibep`|Behavior type a factor with levels A (agressive) B (passive)
+`chd`|Coronary heat disease developed is a factor with levels "no", "yes"
+`typechd`|Type of coronary heart disease is a factor with levels "angina", "infdeath", "none", "silent"
+`timechd`|Time of CHD event or end of follow-up
+`arcus`|Arcus senilis is a factor with levels "absent", "present"
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+1. What proportion of subjects in WCGS developed coronary heart disease?
+2. Based on your previous knowledge, what variables do you think might be related to developing coronary heart disease? Explain your reasoning.
+
+```{r}
+wcgs %>% group_by(chd, typechd) %>%
+  summarize(n=n())
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+One possible explanatory variable is `chol`: maybe subjects with higher cholesterol were more likely to develop coronary heart disease?
+
+```{r, warning=FALSE, fig.height=2.5}
+wcgs %>% ggplot(aes(x=chol, y=chd)) + 
+  geom_jitter(alpha=0.5, height=0.1) + 
+  labs(x='Cholesterol', y='Developed CHD?')
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+What would it look like if we were to fit a linear model to this data?
+
+```{r, warning=FALSE, echo=FALSE}
+wcgs %>% mutate(chd_binary=as.numeric(chd)-1) %>%
+  ggplot(aes(x=chol, y=chd_binary)) + 
+  geom_jitter(alpha=0.5, height=0.1) + 
+  geom_smooth(method='lm', se=FALSE) + 
+  labs(x='Cholesterol', y='CHD: 0 = No, 1 = Yes')
+```
+
+---
+
+## Logistic regression (binomial GLM)
+
+Suppose we have a response variable $Y_i$ for $i=1, ..., n$ with the following properties:
+
+$$Y_{i}=\begin{cases}
+1 & P(Y_{i}=1)=p_{i}\\
+0 & P(Y_{i}=0)=1-p_{i}
+\end{cases}$$
+
+Further assume that each of the $Y_i$'s are independent. The probability for each observation, $p_i$ might vary based on a set of $k$ explanatory variables. 
+
+---
+
+## Logistic regression (binomial GLM)
+
+Our goal is to construct a model that describes $p_i$ based on a set of linear explanatory variables. We accomplish this through the use of a __linear predictor__.
+
+$$\eta_i = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + ... + \beta_k X_{ki} + \epsilon_i$$
+
+__Example__: Find the canonical link.
+
+
+---
+
+## Logistic regression (binomial GLM)
+
+The link function for __logistic regression__ is the __logit__:
+
+$$ln\left(\frac{p_{i}}{1-p_{i}}\right)=\eta_{i}$$
+
+The observed values $Y_i ~ Bernoulli(p_i)$, or if there are multiple trials for each observation, $Y_i \sim Binomial(n_i, p_i)$.
+
+---
+
+## Binomial distribution
+
+The __binomial distribution__ models the number of observed successes out of $n$ random trials.
+
+$$P(Y=y)={n \choose y}p^{y}(1-p)^{n-y}$$
+
+The mean, or __expected value__ of a Binomial distribution is 
+
+$$E(Y) = np$$
+
+and the __standard deviation__ of the distribution is
+
+$$SD(Y)=np(1-p)$$
+
+- Natural extension of the binary/Bernoulli model, with the same canonical link.
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+__Example__: Fit a binomial GLM to predict the probability of developing coronary heart disease based on cholesterol.
+
+```{r}
+wcgs<- wcgs %>% mutate(chd_binary=as.numeric(chd)-1) 
+model_chd <- glm(chd_binary~chol, data=wcgs, family='binomial')
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+```{r}
+summary(model_chd)
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+1. Write the estimated logistic regression model. 
+
+2. Find the predicted probability of developing coronary heart disease for someone whose cholesterol is 200.
+
+3. Find the predicted probability of developing coronary heart disease for someone whose cholesterol is 300.
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+Plot the fitted logistic regression model.
+
+```{r, warning=FALSE, eval=FALSE}
+wcgs %>% 
+  ggplot(aes(x=chol, y=chd_binary)) + 
+  geom_jitter(alpha=0.5, height=0.1) + 
+  geom_smooth(method='glm', 
+              method.args=list(family='binomial'), 
+              se=TRUE) + 
+  labs(x='Cholesterol', y='CHD: 0 = No, 1 = Yes')
+```
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+Plot the fitted logistic regression model.
+
+```{r, warning=FALSE, echo=FALSE}
+wcgs %>% 
+  ggplot(aes(x=chol, y=chd_binary)) + 
+  geom_jitter(alpha=0.5, height=0.1) + 
+  geom_smooth(method='glm', 
+              method.args=list(family='binomial'), 
+              se=TRUE) + 
+  labs(x='Cholesterol', y='CHD: 0 = No, 1 = Yes')
+```
+
+---
+
+## Case study: Heart disease
+
+Interpret the model coefficients:
+
+- Intercept
+
+.can-edit[]
+
+- Slope
+
+.can-edit[]
+
+---
+
+## Logistic regression assumptions
+
+Using logistic regression models to make inferences requires a few assumptions:
+
+1. __Binomial response__: The response variable must be either dichotomous (two possible responses) or the sum of dichotomous responses.
+2. __Independence__: The observations must be independent of one another.
+3. __Variance structure__: By definition, the variance of a binomial random variable is $np(1-p)$, so that variability is highest when $p=0.5$.
+4. __Linearity__: The log of the odds ratio $log(p/(1-p))$ must be a linear function of $x$.
+
+---
+class: inverse
+
+## Case study: Heart disease
+
+```{r, echo=FALSE, fig.height=6}
+par(mfrow=c(2,2))
+plot(model_chd)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+__Example__: Subjects in a reaction time study were asked to press a button as fast as possible after being exposed to either an auditory stimulus (a burst of white noise) or a visual stimulus (a circle flashing on a computer screen). Average reaction times (ms) were recorded for between 10 and 20 trials for each type of stimulus for each subject. 
+
+```{r, warning=FALSE}
+library(Stat2Data)
+data(AudioVisual)
+head(AudioVisual)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+Visually, is there a difference in the reaction times for audio v. visual stimuli?
+
+```{r, fig.height=2.5}
+AudioVisual %>% ggplot(aes(x=ResponseTime, y=Stimulus)) +
+  geom_jitter(height=0.1)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+Fit the logistic regression model. Interpret the model coefficients.
+
+```{r}
+model_reaction <- glm(Stimulus ~ ResponseTime, data=AudioVisual, family='binomial')
+summary(model_reaction)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+How can we evaluate the model assumptions?
+
+1. __Binomial response__: The response variable must be either dichotomous (two possible responses) or the sum of dichotomous responses.
+2. __Independence__: The observations must be independent of one another.
+3. __Variance structure__: By definition, the variance of a binomial random variable is $np(1-p)$, so that variability is highest when $p=0.5$.
+4. __Linearity__: The log of the odds ratio $log(p/(1-p))$ must be a linear function of $x$.
+
+---
+class: inverse
+
+## Case study: Response times
+
+How well does the model fit the data?
+
+```{r, echo=FALSE, fig.height=6}
+par(mfrow=c(2,2))
+plot(model_reaction)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+Based on the warning message, what modification do we need to make?
+
+```{r, fig.height=2.5}
+AudioVisual %>% ggplot(aes(x=ResponseTime, y=Stimulus)) +
+  geom_jitter(height=0.1) + 
+  geom_smooth(method='glm', method.args=list(family='binomial'), se=TRUE)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+```{r}
+AudioVisual <- AudioVisual %>% 
+  mutate(StimulusBinary = as.numeric(Stimulus)-1)
+glimpse(AudioVisual)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+```{r, echo=FALSE}
+AudioVisual %>% ggplot(aes(x=ResponseTime, y=StimulusBinary)) +
+  geom_jitter(height=0.1) + 
+  geom_smooth(method='glm', method.args=list(family='binomial'), se=TRUE)
+```
+
+---
+class: inverse
+
+## Case study: Response times
+
+Do you have any concerns about this model?
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+One of the most enduring tools to measure Hollywood’s gender bias is a test originally promoted by cartoonist Alison Bechdel in a 1985 strip from her “Dykes To Watch Out For” series. Bechdel said that if a movie can satisfy three criteria — there are at least two named women in the picture, they have a conversation with each other at some point, and that conversation isn’t about a male character — then it passes “The Rule,” whereby female characters are allocated a bare minimum of depth. 
+
+- http://bechdeltestfest.com/about/
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+Using Bechdel test data, FiveThirtyEight analyzed 1,794 films released from 1990 to 2013 to examine the relationship between the prominence of women in a film and that film’s budget and gross profits. We'll repeat that analysis with the `bechdel` data set from the `fivethirtyeight` package.
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+library(fivethirtyeight)
+data(bechdel)
+glimpse(bechdel)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+Has the proportion of films passing the Bechdel test increased over time?
+
+```{r, fig.height=5}
+bechdel %>% ggplot(aes(x=year, y=binary)) + geom_point(alpha=0.1)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+Based on the plot, do you think the binomial GLM will be statistically significant? Explain your reasoning.
+
+```{r, fig.height=5}
+bechdel %>% ggplot(aes(x=year, y=binary)) +
+  geom_jitter(height=0.1) + 
+  geom_smooth(method='glm', 
+              method.args=list(family='binomial'), se=TRUE)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+(Try again) Based on the plot, do you think the binomial GLM will be statistically significant? Explain your reasoning.
+
+```{r, echo=1, fig.height=5}
+bechdel <- bechdel %>% 
+  mutate(binary2 = ifelse(binary=='PASS', 1, 0))
+bechdel %>% ggplot(aes(x=year, y=binary2)) +
+  geom_jitter(height=0.1) + 
+  geom_smooth(method='glm', method.args=list(family='binomial'), se=TRUE)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+model_bechdel <- glm(binary2 ~ year, data=bechdel, family='binomial')
+summary(model_bechdel)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+What if we approach this data in a different way?
+
+```{r}
+bechdel2 <- bechdel %>% group_by(year) %>%
+  summarize(count = sum(binary2),
+    prop = sum(binary2)/n(),
+    n=n())
+glimpse(bechdel2)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r, fig.height=5}
+bechdel2 %>% ggplot(aes(x=year, y=prop)) + geom_point()
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+model_bechdel2a <- glm(prop ~ year, data=bechdel2, family='binomial')
+summary(model_bechdel2a)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+model_bechdel2b <- glm(count/n ~ year, data=bechdel2, family='binomial')
+summary(model_bechdel2b)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+model_bechdel2c <- glm(prop ~ year, weights=n, data=bechdel2, family='binomial')
+summary(model_bechdel2c)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+```{r}
+model_bechdel2d <- lm(prop ~ year, data=bechdel2)
+summary(model_bechdel2d)
+```
+
+---
+class: inverse
+
+## Case study: The Bechdel test
+
+How would we choose which of these four models to use? Investigate each model's performance, predictive accuracy, ease of interpretation, and any other properties you think would be desirable in a model. __Be prepared to share your findings.__
+
+![](https://media.giphy.com/media/Gpf8A8aX2uWAg/giphy.gif)

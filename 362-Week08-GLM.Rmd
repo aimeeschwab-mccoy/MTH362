@@ -1,0 +1,173 @@
+---
+title: 'Week 8: Generalized Linear Models'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+## Generalized linear models
+
+In the early 1970s, a seminal paper was published by Nelder and Wedderburn defining a broader class of models that generalizes multiple linear regression. These models are called, you guessed it, __Generalized Linear Models__, or __GLMs__.
+
+> Nelder, John Ashworth, and Robert William Maclagan Wedderburn. 1972. “Generalized Linear Models.” Journal of the Royal Statistical Society. Series A (General) 135 (3): 370–84. doi:10.2307/2344614.
+
+---
+
+## Generalized linear models
+
+The fundamental result is this: 
+
+> Any probability distribution that is a member of the __exponential family__ can be used to model the response variable in a linear model, through the selection of an appropriate linear predictor and link function combination.
+
+---
+
+## Exponential family
+
+A probability distribution is a member of the __exponential family__ if its density/distribution function can be written as
+
+$$f(y;\theta)=exp\left[a(y)b(\theta)+c(\theta)+d(y)\right]$$
+
+--
+
+- $\theta$ represents the parameter(s) of the distribution
+- $a(y), b(\theta), c(\theta), d(y)$ are functions of the data or the parameter
+
+If the density function can be rearranged to have this form, and the __support__ of the distribution does not depend on $\theta$, then the distribution is part of the exponential family.
+
+---
+
+## Exponential family
+
+In the exponential family, $b(\theta)$ is referred to as the __canonical link__. This will make an appearance later!
+  
+__Example__: Show that the Poisson distribution is part of the exponential family.
+
+$$P(Y=y)=\frac{e^{-\lambda}\lambda^{y}}{y!}$$
+
+where $y=0, 1, 2, ...\infty$
+
+---
+
+## Exponential family
+  
+__Example__: Show that the normal distribution is part of the exponential family.
+
+$$f(y)=\frac{1}{\sqrt{2\pi\sigma^{2}}}exp\left[\frac{-(y-\mu)^{2}}{2\sigma^{2}}\right]$$
+
+where $-\infty < y < \infty$.
+
+---
+
+## Exponential family
+
+For a one parameter exponential family, 
+
+$$E(Y) = -\frac{c'(\theta)}{b'(\theta)}$$
+  
+and 
+
+$$V(Y) = \frac{b''(\theta)c'(\theta) - c''(\theta)b'(\theta)}{[b'(\theta)]^3}$$
+                                                               
+where derivatives are with respect to $\theta$.
+         
+---
+
+## Exponential family
+                                                               
+__Example__: Verify these results for the Poisson distribution.
+
+---
+                                                               
+## Generalized linear model
+                                                               
+In a GLM, the canonical link $b(\theta)$ can be modeled as a linear combination of the explanatory variables.
+                                                               
+$$b(\theta) = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + ... + \beta_k X_{ki} + \epsilon_i$$
+               
+--
+
+- $\epsilon_i$ is usually - but not always - assumed normal in a GLM
+- In our examples with generated data, $\epsilon_i$ wasn't normally distributed because we didn't add a normal "error" term
+- We can assume residuals are independent... or not
+
+Using this, we can now model response variables from any member of the exponential family! This includes all of the familiar distributions: Poisson, binomial, Gamma, etc. 
+
+---
+                                                               
+## Three components of a GLM
+                                                               
+![](GLM_diagram.png)
+
+---
+                                                               
+## Poisson GLM
+                                                               
+__Example__: Write the Poisson regression model in terms of a GLM.
+
+---
+                                                               
+## Multiple regression GLM
+                                                               
+__Example__: Write the multiple linear regression model in terms of a GLM.
+
+---
+                                                               
+## Generalized does not mean general
+                                                               
+The __general__ linear model refers to a model with a multivariate response. We may cover these later in the course, but for now - a simple warning that they are not the same.

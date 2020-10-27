@@ -1,0 +1,685 @@
+---
+title: 'Week 4: Poisson Regression'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+## Count variables
+
+Numerical variables aren't always discrete. __Count variables__ model counts or frequencies of some event within a particular space. Some research questions with count responses are:
+
+1. Are the number of motorcycle deaths in a given year related to a state’s helmet laws?
+2. Does the number of employers conducting on-campus interviews during a year differ for public and private colleges?
+3. Does the daily number of asthma-related visits to an Emergency Room differ depending on air pollution indices?
+4. Has the number of deformed fish in randomly selected Minnesota lakes been affected by changes in trace minerals in the water over the last decade?
+
+--
+
+There are two probability distributions that are good choices for modeling count data:
+
+1. Poisson distribution
+2. Negative binomial
+
+We'll start with the Poisson distribution.
+
+---
+
+## Poisson distribution
+
+In a Poisson process, we count: the number of events per unit of time or space. The number of events we observe depends on the size or length of the interval.
+
+Let $Y$ be a random variable. The __Poisson distribution__ models the probability that $Y$ takes on a particular value, $y$, as
+
+$$P(Y = y) = \frac{e^{-\lambda} \lambda^y}{y!}$$
+
+for $y = 0, 1, 2, ..., \infty$.
+
+--
+
+> In probability theory, we use uppercase letters ($X$, $Y$) to denote random variables and lowercase letters ($x$, $y$) to denote values of the random variable.
+
+---
+class: inverse
+
+## Poisson distribution
+
+__Example__: In Nebraska, there is an average of 2.25 motorcycle fatalities per month. Ignoring weather conditions, find the probabilities that:
+
+1. There will be no motorcycle fatalities in Nebraska in a randomly selected month.
+2. There will be more than two motorcycle fatalities in Nebraska in a randomly selected month.
+
+---
+
+## Poisson probabilities in `R`
+
+Probability functions in `R` have a particular syntax:
+
+> `prefix + dist`
+
+The first letter of the `R` probability function is the prefix, this indicates what _type_ of probability operation you'd like. The next part of the probability function indicates the distribution.
+
+For a Poisson distribution:
+
+Function|Probability operation
+------|--------
+`dpois(y, lambda=___)`|$P(Y=y)$
+`ppois(y, lambda=___)`|$P(Y\le y)$
+`rpois(n, lambda=___)`|Generate $n$ observations from a Poisson distribution
+
+
+---
+class: inverse
+
+## Poisson distribution
+
+__Example__: In Nebraska, there is an average of 2.25 motorcycle fatalities per month. Ignoring weather conditions, find the probabilities that:
+
+1. There will be no motorcycle fatalities in Nebraska in a randomly selected month.
+
+```{r}
+dpois(0, lambda=2.25)
+```
+
+2. There will be more than two motorcycle fatalities in Nebraska in a randomly selected month.
+
+```{r}
+1 - ppois(2, lambda=2.25)
+```
+
+---
+
+## Poisson distribution
+
+How does the Poisson distribution's shape and spread change with $\lambda$?
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+lambda <- c(rep(0.5, 10), rep(1, 10), rep(5, 20), rep(10, 25))
+probs <- dpois(c(0:9, 0:9, 0:19, 0:24), lambda=lambda)
+x <- c(0:9, 0:9, 0:19, 0:24)
+
+data <- as.data.frame(cbind(lambda, probs, x))
+colnames(data) <- c('lambda', 'probs', 'x')
+
+data %>% ggplot(aes(x=x, y=probs, fill=as.factor(lambda))) + 
+  geom_bar(stat='identity', col='black') + 
+  facet_wrap(~lambda, scales='free') + 
+  guides(fill=FALSE) + 
+  labs(x='y', y='P(Y=y)') + 
+  scale_fill_brewer(palette='Set2')
+```
+
+---
+
+## Poisson distribution
+
+The mean, or __expected value__ of a Poisson distribution is 
+
+$$E(Y) = \lambda$$
+
+--
+
+and the __standard deviation__ of the distribution is
+
+$$SD(Y)=\sqrt{\lambda}$$
+
+--
+
+Poisson distributions are a good fit for modeling count data when: $\bar{Y} \ge SD(Y)$. If the mean is much smaller than the variance, we say the data is __overdispersed__.
+
+- We'll come back to this idea later!
+
+---
+
+## Poisson regression
+
+The Poisson distribution is _completely defined_ by a single parameter, $\lambda$. Suppose that, for each observation $i=1, ..., n$, the Poisson parameter $\lambda_i$ varies depending on a set of explanatory variables $X_1, ..., X_k$. 
+
+--
+
+For a response variable that follows a Poisson distribution, simple linear regression isn't a good choice. 
+
+---
+class: inverse
+
+## Linear models on count data
+
+__Example__: The Galapagos Islands is a group of volcanic islands on the equator in the Pacific Ocean. The Galapagos are known for their large number of endemic species, which were famously studied by Charles Darwin. Darwin's work on the islands contributed to his theory of evolution by means of natural selection.
+
+The data set `gala` (from the `faraway` package) contains information on the number of species for 30 islands in the 1970s.
+
+> M. P. Johnson and P. H. Raven (1973) "Species number and endemism: The Galapagos Archipelago revisited" Science, 179, 893-895
+
+```{r}
+library(faraway)
+data(gala)
+head(gala)
+```
+
+---
+class: inverse
+
+## Linear models on count data
+
+The variables represented in this data include:
+
+Variable|Description
+-------|-------------
+`Species`|the number of plant species found on the island
+`Endemics`|the number of endemic species
+`Area`|the area of the island (km2)
+`Elevation`|the highest elevation of the island (m)
+`Nearest`|the distance from the nearest island (km)
+`Scruz`|the distance from Santa Cruz island (km)
+`Adjacent`|the area of the adjacent island (square km)
+
+Suppose we want to fit a basic model to predict the number of endemic species on the island based on the area of the island.
+
+---
+class: inverse
+
+## Linear models on count data
+
+Describe the relationship between the number of endemic species and area of the island.
+
+```{r, warning=FALSE, message=FALSE}
+gala %>% ggplot(aes(x=Area, y=Endemics)) + 
+  geom_point() + 
+  geom_smooth(method='lm', se=FALSE)
+```
+
+---
+class: inverse
+
+## Linear models on count data
+
+Area might not be the best choice - let's try taking the natural log of the area instead.
+
+```{r, echo=1:2}
+gala2 <- gala %>% 
+  mutate(logArea = log(Area))
+
+gala2 %>% ggplot(aes(x=logArea, y=Endemics)) + 
+  geom_point() + 
+  geom_smooth(method='lm', se=FALSE)
+```
+
+---
+class: inverse
+
+## Linear models on count data
+
+It looks like there is a linear relationship between the natural log of the area of the island and the number of endemic species. Next, we'll fit the model and look at the LINE assumptions.
+
+```{r}
+linear.model <- lm(Endemics~logArea, data=gala2)
+summary(linear.model)
+```
+
+---
+class: inverse
+
+## Linear models on count data
+
+Are the line assumptions met? If not - which ones are problematic?
+
+```{r, fig.height=10}
+par(mfrow=c(2, 2))
+plot(linear.model)
+```
+
+
+---
+
+## Linear models on count data
+
+1. Poisson random variables are _bounded_. Since they model counts, $\lambda_i \in [0, \infty)$. Linear regression models could allow $\lambda_i$ to go negative.
+
+--
+
+2. The equal variance assumption is problematic. In a Poisson distribution, the standard deviation (and thus the variance) increases as $\lambda_i$ increases.
+
+---
+
+## Poisson regression model
+
+We can avoid these problems by modeling $ln(\lambda_i)$ as a linear function of the covariates, instead of $\lambda_i$. Why?
+
+--
+
+1. $ln(\lambda_i)$ exists in the proper domain: $(-\infty, \infty)$.
+
+--
+
+2. Like we saw with `Area`, taking the natural log transformation decreases the variance.
+
+---
+
+## Poisson regression model
+
+The __Poisson regression model__ uses the natural log as a __linear predictor__: a linear function of the explanatory variables.
+
+$$\eta_i = ln(\lambda_i) = \beta_0 + \beta_1 X_{1i} + \beta_2 X_{2i} + ... | \beta_k X_{ki}$$
+
+The observed values, $Y_i \sim Poisson(\lambda_i)$ for a given set of $(x_{1i}, x_{2i}, ..., x_{ki})$.
+
+--
+
+We can convert the linear predictor $\eta_i$ back to the scale of the original response using a __link function__. In this case, 
+
+$$\hat{Y}_i = e^{\eta_i}$$
+
+---
+
+## Poisson regression model
+
+
+![Comparison of linear regression and Poisson regression.](OLSpois-1.png)
+
+---
+
+## Poisson regression assumptions
+
+Using Poisson regression to make inferences requires four assumptions. Unfortunately, unlike ordinary least squares, there isn't a cute acronym. 
+
+1. __Poisson response__: The response variable is a count per unit of time or space, described by a Poisson distribution.
+
+2. __Independence__: The observations must be independent of one another.
+
+3. __Mean = Variance__: The mean of a Poisson random variable must be equal to its variance.
+
+4. __Linearity__: The log of the mean rate, $ln(\lambda_i)$, must be a linear function of $x$.
+
+---
+class: inverse
+
+## Fitting a Poisson regression model
+
+The `glm()` function in `R` can be used to fit a Poisson regression model.
+
+> `glm` stands for "generalized linear model". 
+
+```{r}
+poisson.model <- glm(Endemics ~ logArea, data=gala2, 
+                     family='poisson') #<<
+summary(poisson.model)
+```
+
+---
+class: inverse
+
+## Fitting a Poisson regression model
+
+```{r, echo=FALSE}
+poisson.model
+```
+
+Write the fitted Poisson regression model. 
+
+.can-edit[__Fitted model__:]
+
+---
+class: inverse
+
+## Fitting a Poisson regression model
+
+```{r, echo=FALSE}
+poisson.model
+```
+
+Predict the number of endemic species on an island in the Galapagos with an area of 25 square kilometers.
+
+.can-edit[__Prediction, X=25__:]
+
+---
+
+## Interpreting coefficients
+
+In a Poisson regression, interpreting the coefficients is a little trickier. For example, consider a Poisson model with a single explanatory variable. 
+
+$$\eta_X = ln(\lambda_X) = \beta_0 + \beta_1 X$$
+
+--
+
+What happens when $X$ increases by 1?
+
+$$\eta_{X+1} = ln(\lambda_{X+1}) = \beta_0 + \beta_1 (X+1)$$
+
+---
+
+## Interpreting coefficients
+
+$\frac{\lambda_{X+1}}{\lambda_X}$ is the __relative risk__: the percent change in the response for a unit change in $X$.
+
+--
+
+What happens when $X$ increases by 10?
+
+$$\eta_{X+10} = ln(\lambda_{X+10}) = \beta_0 + \beta_1 (X+10)$$
+
+
+---
+
+## Interpreting coefficients
+
+Can we generalize this to an increase of $a$?
+
+
+---
+
+## Confidence intervals for coefficients
+
+As with linear regression, standard errors are included for the estimated coefficients in Poisson regression. We can use that standard error to build a normal-based (Wald) confidence interval.
+
+$$\hat{\beta}_i \pm Z^* \times SE(\hat{\beta}_i)$$
+
+Let $LL$ and $UL$ denote the lower limit and upper limit of the confidence interval, respectively. What does the range $(e^{LL}, e^{UL})$ represent?
+
+
+---
+
+## Confidence intervals for coefficients
+
+Another approach to building a confidence interval for the coefficients in Poisson regression is a technique called __profile likelihood__. Here's how it works:
+
+--
+
+First, calculate a quantity called the __log-likelihood__: the sum of the natural log of the probability density functions of the chosen model. 
+
+In our case, let $\varphi$ be the parameters of interest (i.e. slope parameters $\beta_i$), and $\lambda$ be the "nuisance parameters" (i.e. variance parameters like $\sigma^2$).
+
+$$LL_{n}(\varphi,\lambda)=\sum_{i=1}^{n}ln\left(f(X_{i};\varphi,\lambda\right)$$
+
+---
+
+## Profile-based intervals
+
+A natural estimate of $\varphi$ and $\lambda$ might be the values that maximize the log-likelihood. Solving this problem analytically can be challenging. Instead, we iterate.
+
+- Suppose that $\varphi$ is known. Maximize the log-likelihood $LL_{n}(\varphi,\lambda)$ with respect to $\lambda$.
+- Evaluate this maximized function for each value of $\varphi$. 
+- Choose whichever value of $\varphi$ which leads to the maximum.
+
+`R` does this numerically instead of analytically. 
+
+---
+class: inverse 
+
+## Confidence intervals for coefficients
+
+Calculate and interpret a 95% Wald confidence interval for the coefficient of $ln(Area)$.
+
+```{r}
+summary(poisson.model)$coefficients
+```
+
+---
+class: inverse 
+
+## Confidence intervals for coefficients
+
+Compare this to the confidence interval calculated using profile likelihood. How does it differ?
+
+```{r}
+confint(poisson.model)
+```
+
+---
+
+## Comparing models
+
+You might have noticed in the regression output a reference to "deviance". Since Poisson models don't assume a normal response, using normal distribution theory to assess the residuals is flawed.
+
+> That is, we should __not__ assume the residuals are normally distributed!
+
+--
+
+For a Poisson regression model, a __deviance residual__ is calculated as
+
+$$Deviance_{i}=sign(Y_{i}-\hat{\lambda}_{i})\sqrt{2\left[Y_{i}ln\left(\frac{Y_{i}}{\hat{\lambda}_{i}}\right)-\left(Y_{i}-\hat{\lambda}_{i}\right)\right]}$$
+
+
+where the $sign(x)$ function is defined as
+
+$$sign(x)=\begin{cases}
+1 & x>0\\
+-1 & x<0\\
+0 & x=0
+\end{cases}$$
+
+---
+
+## Residual deviance
+
+The __residual deviance__ is the sum of the squared deviance residuals. In general, models that fit well will have small deviances. Why?
+
+
+$$Deviance_{i}=sign(Y_{i}-\hat{\lambda}_{i})\sqrt{2\left[Y_{i}ln\left(\frac{Y_{i}}{\hat{\lambda}_{i}}\right)-\left(Y_{i}-\hat{\lambda}_{i}\right)\right]}$$
+
+--
+
+The formula behind residual deviance seems weird, but there's a very particular reason why we use it: when the model "fits", residual deviance follows a $\chi^2$ distribution.
+
+---
+class: inverse
+
+## Residual deviance
+
+We can use the `pchisq` function to find the probability of observing a residual deviance at lest this large, if the model is a good fit. 
+
+This is called the __"drop-in" deviance__ test, because you're measuring the drop in the model deviance.
+
+```{r}
+1 - pchisq(poisson.model$deviance, 
+           poisson.model$df.residual)
+```
+
+What should we conclude?
+
+---
+class: inverse
+
+## Improving the model
+
+Let's add a new term to the model: distance to the nearest island. 
+
+```{r}
+poisson.model2 <- glm(Endemics ~ logArea + Nearest, data=gala2, 
+                      family='poisson')
+summary(poisson.model2)
+```
+
+---
+class: inverse
+
+## Improving the model
+
+It looks like distance is "marginally significant". Has the model been significantly improved by adding distance?
+
+
+```{r}
+anova(poisson.model, 
+      poisson.model2, test='Chisq')
+```
+
+---
+class: inverse
+
+## Improving the model
+
+Has the model fit improved? Which, if any, of the model assumptions appear to be violated?
+
+```{r, fig.height=10, echo=-3}
+1 - pchisq(poisson.model2$deviance, 
+           poisson.model2$df.residual)
+par(mfrow=c(2, 2))
+plot(poisson.model2)
+```
+
+---
+
+## What about a quadratic term?
+
+The curvature in the residual plot usually indicates that a higher-order term should be added to the model.
+
+- What happens if you fit the model below?
+
+`glm(Endemics ~ logArea + logArea^2, data=gala2, family='poisson')`
+
+--
+
+The `I()` function stands for "identity".
+
+```{r}
+poisson.model3 <- glm(Endemics ~ logArea + I(logArea^2), 
+                      data=gala2, family='poisson')
+```
+
+---
+class: inverse
+
+## What about a quadratic term?
+
+```{r}
+summary(poisson.model3)
+```
+
+---
+class: inverse
+
+## Another option
+
+```{r}
+gala3 <- gala2 %>% mutate(logArea2 = logArea^2)
+glimpse(gala3)
+```
+
+---
+class: inverse
+
+## Another option
+
+```{r}
+poisson.model.square <- glm(Endemics~ logArea + logArea2, 
+                            data=gala3, family='poisson')
+summary(poisson.model.square)
+```
+
+---
+class: inverse
+
+## What about a quadratic term?
+
+How well does the quadratic model fit the data?
+
+```{r, fig.height=10}
+par(mfrow=c(2,2))
+plot(poisson.model3)
+```
+
+---
+class: inverse
+
+## What about a quadratic term?
+
+How well does the quadratic model fit the data?
+
+```{r}
+1 - pchisq(poisson.model3$deviance, poisson.model3$df.residual)
+```
+
+---
+
+## Better way to plot residuals
+
+```{r}
+names(poisson.model3)
+head(poisson.model3$residuals)
+head(poisson.model3$fitted.values)
+```
+
+---
+
+## Better way to plot residuals
+
+```{r, eval=FALSE}
+gala3 <- gala2 %>% mutate(residual = poisson.model3$residuals, 
+                          fitted.values = poisson.model3$fitted.values)
+glimpse(gala3)
+
+gala3 %>% ggplot(aes(x=fitted.values, y=residual)) + 
+  geom_point() +
+  geom_smooth(method='lm')
+```
+
+---
+
+## Better way to plot residuals
+
+```{r, echo=FALSE}
+gala3 <- gala2 %>% mutate(residual = poisson.model3$residuals, 
+                          fitted.values = poisson.model3$fitted.values)
+
+gala3 %>% ggplot(aes(x=fitted.values, y=residual)) + 
+  geom_point() +
+  geom_smooth(method='lm')
+```
+

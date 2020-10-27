@@ -1,0 +1,563 @@
+---
+title: 'Week 6: Negative Binomial Regression'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+## What if...
+
+What if a response variable is not normally distributed?
+
+--
+
+_What if it's not Poisson distributed either?_
+
+--
+
+There are a whole host of probability models that we could reasonably use to model a response variable! Now that we've seen how useful changing the theoretical distribution of the response variable can be, we'll take a quick detour over some of the most common ones.
+
+---
+
+## Most common options
+
+__Discrete distributions__:
+
+- Binomial
+- _Poisson (Poisson regression)_
+- Negative binomial
+
+--
+
+Continuous distributions:
+
+- Exponential
+- Gamma
+- _Normal (OLS regression)_
+- Beta
+
+---
+
+## Binomial distribution
+
+The __binomial distribution__ is used to model the number of "successes" observed in a fixed number of independent random trials, each with constant probability of success
+
+$$P(Y=y)={n \choose y}p^{y}(1-p)^{n-y}$$
+
+- $n$ represents the number of trials
+- $p$ represents the probability of success
+- $y$ represents the observed number of successes
+
+---
+
+## Binomial distribution
+
+Binomial distributions are used to model __proportional data__.
+
+- How does the probability of success, $p$, depend on the explanatory variables?
+- Special case when $n=1$: __logistic regression__ 
+
+---
+
+## Binomial distribution
+
+Properties of binomial random variables:
+
+$$E(Y)=np$$
+$$V(Y)=np(1-p)$$
+
+--
+
+What happens to the variance of a binomial random variable as $p$ changes? Where is the variance maximized?
+
+---
+
+## Binomial distribution
+
+__Example__: What happens to the variance of a binomial random variable as $p$ changes? Where is the variance maximized?
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+n <- 20
+p <- seq(from=0.01, to=0.99, by=0.01)
+V <- n*p*(1-p)
+
+data <- tibble(p, V)
+data %>% ggplot(aes(x=p, y=V)) + 
+  geom_line() + 
+  labs(x='p', y='V(Y)', 
+       title='Binomial Variance, n=20')
+```
+
+---
+
+## Binomial distribution
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#library(tidyverse)
+x1 <- 0:20
+x2 <- 0:100
+d1 <- dbinom(x1, size=20, p=0.5)
+d2 <- dbinom(x1, size=20, p=0.2)
+d3 <- dbinom(x1, size=20, p=0.1)
+d4 <- dbinom(x2, size=100, p=0.5)
+d5 <- dbinom(x2, size=100, p=0.2)
+d6 <- dbinom(x2, size=100, p=0.1)
+
+x = c(x1, x1, x1, x2, x2, x2)
+dist <- c(d1, d2, d3, d4, d5, d6)
+parms <- c(rep('Binomial(n=20, p=0.5)', length(x1)),
+             rep('Binomial(n=20, p=0.2)', length(x1)),
+             rep('Binomial(n=20, p=0.1)', length(x1)),
+             rep('Binomial(n=100, p=0.5)', length(x2)),
+             rep('Binomial(n=100, p=0.2)', length(x2)),
+             rep('Binomial(n=100, p=0.1)', length(x2)))
+
+data <- tibble(x, dist, parms)
+
+data %>% ggplot(aes(x=x, y=dist)) + 
+  geom_bar(stat='identity', aes(fill=parms), col='black') + 
+  facet_wrap(~parms, scales='free') + 
+  guides(fill=FALSE) + 
+  scale_fill_viridis_d()
+```
+
+---
+
+## Overdispersed count data
+
+Binomial distribution:
+
+- Discrete - so could potentially be used for counts
+
+--
+
+- Overdispersion - not so much
+
+Other discrete distributions?
+
+---
+
+## Negative binomial distribution
+
+The __negative binomial distribution__ is used to model the number of trials needed until the $r^{th}$ success occurs
+
+$$P(Y=y)={y+r-1 \choose r-1}(1-p)^{y}(p)^{r}$$
+
+- $r$ represents the desired number of successes
+- $p$ represents the probability of success
+- $y$ represents the observed number of failures _before_ the $r^{th}$ success
+
+---
+
+## Negative distribution
+
+Negative binomial distributions are used to model __count data__.
+
+- Special relationship between the negative binomial and Poisson...
+
+Properties of negative binomial random variables:
+
+$$E(Y)=\frac{r(1-p)}{p}$$
+
+$$V(Y) = \frac{r(1-p)}{p^2}$$
+
+---
+
+## Negative binomial distribution
+
+__Example__: How are the $E(Y)$ and $V(Y)$ of a negative binomial random variable related? How does that compare to the Poisson distribution?
+
+---
+
+## Negative binomial distribution
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+x1 <- 0:20
+d1 <- dnbinom(x=x1, size=1, prob=0.5)
+d2 <- dnbinom(x=x1, size=1, prob=0.2)
+d3 <- dnbinom(x=x1, size=1, prob=0.1)
+d4 <- dnbinom(x=x1, size=3, prob=0.5)
+d5 <- dnbinom(x=x1, size=3, prob=0.2)
+d6 <- dnbinom(x=x1, size=3, prob=0.1)
+d7 <- dnbinom(x=x1, size=9, prob=0.5)
+d8 <- dnbinom(x=x1, size=9, prob=0.2)
+d9 <- dnbinom(x=x1, size=9, prob=0.1)
+
+x = c(x1, x1, x1, x1, x1, x1, x1, x1, x1)
+dist <- c(d1, d2, d3, d4, d5, d6, d7, d8, d9)
+parms <- c(rep('NBinom(r=1, p=0.5)', length(x1)),
+             rep('NBinom(r=1, p=0.2)', length(x1)),
+             rep('NBinom(r=1, p=0.1)', length(x1)),
+             rep('NBinom(r=3, p=0.5)', length(x1)),
+             rep('NBinom(r=3, p=0.2)', length(x1)),
+             rep('NBinom(r=3, p=0.1)', length(x1)),
+             rep('NBinom(r=9, p=0.5)', length(x1)),
+             rep('NBinom(r=9, p=0.2)', length(x1)),
+             rep('NBinom(r=9, p=0.1)', length(x1)))
+
+data <- tibble(x, dist, parms)
+
+data %>% ggplot(aes(x=x, y=dist)) +
+  geom_bar(stat='identity', aes(fill=parms), col='black') + 
+  facet_wrap(~parms, scales='free') + 
+  guides(fill=FALSE) + 
+  scale_y_continuous(labels=NULL) + 
+  scale_fill_viridis_d()
+```
+
+---
+
+## Poisson v. negative binomial distribution
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+x1 <- 0:20
+d1 <- dpois(x=x1, lambda=1*(1-0.5)/0.5)
+d2 <- dpois(x=x1, lambda=1*(1-0.2)/0.2)
+d3 <- dpois(x=x1, lambda=1*(1-0.1)/0.1)
+d4 <- dpois(x=x1, lambda=3*(1-0.5)/0.5)
+d5 <- dpois(x=x1, lambda=3*(1-0.2)/0.2)
+d6 <- dpois(x=x1, lambda=3*(1-0.1)/0.1)
+d7 <- dpois(x=x1, lambda=9*(1-0.5)/0.5)
+d8 <- dpois(x=x1, lambda=9*(1-0.2)/0.2)
+d9 <- dpois(x=x1, lambda=9*(1-0.1)/0.1)
+
+x = c(x1, x1, x1, x1, x1, x1, x1, x1, x1)
+dist <- c(d1, d2, d3, d4, d5, d6, d7, d8, d9)
+parms <- c(rep('Pois(L=1*(1-0.5)/0.5)', length(x1)),
+             rep('Pois(L=1*(1-0.2)/0.2)', length(x1)),
+             rep('Pois(L=1*(1-0.1)/0.1)', length(x1)),
+             rep('Pois(L=3*(1-0.5)/0.5)', length(x1)),
+             rep('Pois(L=3*(1-0.2)/0.2)', length(x1)),
+             rep('Pois(L=3*(1-0.1)/0.1)', length(x1)),
+             rep('Pois(L=9*(1-0.5)/0.5)', length(x1)),
+             rep('Pois(L=9*(1-0.2)/0.2)', length(x1)),
+             rep('Pois(L=9*(1-0.1)/0.1)', length(x1)))
+
+data <- tibble(x, dist, parms)
+
+data %>% ggplot(aes(x=x, y=dist)) + geom_bar(stat='identity', aes(fill=parms), col='black') + facet_wrap(~parms, scales='free') + guides(fill=FALSE) + scale_y_continuous(labels=NULL)+ 
+  scale_fill_viridis_d()
+```
+
+---
+
+## Poisson v. negative binomial distribution
+
+__Example__: Suppose you have a count-valued response variable. When would you try using a negative binomial model instead of a Poisson model?
+
+---
+
+## Negative binomial models
+
+The negative binomial model can be treated as a __hierarchical model__: if
+
+$$Y\vert \lambda \sim Poisson(\lambda)$$
+
+
+$$\lambda\sim Gamma\left(r,\frac{p}{1-p}\right)$$
+
+--
+
+then...
+
+$$Y \sim NBinom(r, p)$$
+
+---
+
+## Negative binomial models
+
+__Example__: Let $E(Y)=\mu$. Write _both_ $E(Y)$ and $V(Y)$ in terms of $\mu$.
+
+---
+class: inverse
+
+## Case Study: Complaints about emergency room doctors
+
+Data was recorded on a random sample of 44 doctors working in an emergency service at a hospital to study factors affecting the number of complaints received. 
+
+Variable|Description
+-------|-------------
+`visits`|the number of patient visits
+`complaints`|the number of complaints
+`residency`|whether the doctor is in residency training
+`gender`|the gender of the doctor
+`revenue`|dollars earned per hour by the doctor
+`hours`|total number of hours worked
+
+---
+class: inverse
+
+## Case Study: Complaints about emergency room doctors
+
+```{r, echo=FALSE}
+library(faraway)
+data(esdcomp)
+esdcomp %>% ggplot(aes(x=hours, y=complaints)) + 
+  geom_point() + 
+  labs(x='Hours Worked', y='Number of Complaints')
+```
+
+---
+class: inverse
+
+## Case Study: Poisson model
+
+```{r}
+model.poisson <- glm(complaints ~ hours, data=esdcomp, 
+                     family='poisson')
+summary(model.poisson)
+```
+
+---
+class: inverse
+
+## Case Study: Poisson model
+
+```{r, echo=FALSE}
+summary(model.poisson)
+```
+
+
+---
+class: inverse
+
+## Case Study: Poisson model
+
+__Example__: Evaluate the fit of this Poisson model. Is the model a good fit? Do you have any concerns about the model assumptions?
+
+```{r}
+1 - pchisq(model.poisson$deviance, model.poisson$df.residual)
+```
+
+```{r, fig.height=8, fig.width=8}
+par(mfrow=c(2,2))
+plot(model.poisson)
+```
+
+---
+class: inverse
+
+## Case Study: Quasi-Poisson model 
+
+```{r}
+model.quasipoisson <- glm(complaints ~ hours + revenue, data=esdcomp,
+                         family='quasipoisson')
+summary(model.quasipoisson)
+```
+
+---
+class: inverse
+
+## Case Study: Quasi-Poisson model
+
+```{r, echo=FALSE}
+summary(model.quasipoisson)
+```
+
+---
+class: inverse
+
+## Case Study: Quasi-Poisson model
+
+__Example__: The estimated overdispersion parameter is 1.46, meaning that there is some extra variance in the model. Compare the standard errors from the quasipoisson model to the standard errors from the Poisson model - what do you notice?
+
+```{r, fig.height=8, fig.width=8}
+par(mfrow=c(2,2))
+plot(model.quasipoisson)
+```
+
+---
+class: inverse
+
+## Case Study: Negative binomial model
+
+```{r, warning=FALSE, message=FALSE}
+library(MASS)
+model.nb <- glm.nb(complaints ~ hours + revenue, data=esdcomp)
+summary(model.nb)
+```
+
+---
+class: inverse
+
+## Case Study: Negative binomial model
+
+```{r, echo=FALSE}
+summary(model.nb)
+```
+
+---
+class: inverse
+
+## Case Study: Negative binomial model
+
+__Example__: According to the residual deviance test, is the negative binomial model an improvement?
+
+```{r}
+1 - pchisq(model.nb$deviance, model.nb$df.residual)
+```
+
+---
+class: inverse
+
+## Case Study: Negative binomial model
+
+__Example__: Comment on the residual plots for the negative binomial model.
+
+```{r, fig.height=8, fig.width=8}
+par(mfrow=c(2, 2))
+plot(model.nb)
+```
+
+---
+class: inverse
+
+## Case Study: Fitted values v. observed values
+
+```{r}
+esdcomp2 <- esdcomp %>%
+  mutate(fit.pois = model.poisson$fitted.values,
+         fit.qp = model.quasipoisson$fitted.values,
+         fit.nb = model.nb$fitted.values)
+```
+
+---
+class: inverse
+
+## Case Study: Fitted v. observed values
+
+__Example__: Compare the predicted values for the .orange[poisson model] to the  .blue[quasi-poisson model] to the .green[negative binomial model]. What similarities and differences do you see?
+
+```{r, echo=FALSE, fig.height=5}
+esdcomp2 %>% ggplot(aes(x=complaints, y=fit.pois)) +
+  geom_point(col='#ff7f00', pch=15, cex=2) + 
+  geom_point(aes(x=complaints, y=fit.qp), col='#377eb8', pch=16, cex=2) + 
+  geom_point(aes(x=complaints, y=fit.nb), col='#4daf4a', pch=17, cex=2) + 
+  labs(x='Complaints', y='Predicted Complaints')
+```
+
+---
+class: inverse
+
+## Case Study: AIC
+
+```{r}
+AIC(model.poisson)
+AIC(model.quasipoisson)
+AIC(model.nb)
+```
+
+---
+
+## Why is AIC 'NA'?
+
+```{r, eval=FALSE}
+?AIC
+```
+
+> When comparing models fit using maximum likelihood to the same data, the smaller the AIC or BIC, the better the fit. The theory of AIC requires that the log-likelihood has been maximized: whereas AIC can be computed for models not fitted by maximum likelihood, their AIC values should not be compared.
+
+---
+
+## Most common options
+
+Discrete distributions:
+
+- _Binary (Logistic regression)_
+- Binomial
+- _Poisson (Poisson regression)_
+- _Negative binomial (Negative binomial regression)_
+
+Continuous distributions:
+
+- Exponential
+- Gamma
+- _Normal (OLS regression)_
+- Beta
+
+---
+
+## A unified approach: GLMs
+
+Instead of tackling each type of response model separately, let's work toward a unified approach...
+
+__Generalized linear models__:
+
+- Let $\phi$ represent the parameter(s) needed to describe the distribution of the response variable
+
+$$\eta = f(\phi) = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ...$$
+
+$$Y|X_1, ..., X_p \sim Model(\phi = f^{-1}(\eta))$$
+
+---
+
+## Coming questions: GLMs
+
+Generalized Linear Models (GLMs):
+
+$$\eta = f(\phi) = \beta_0 + \beta_1 X_1 + \beta_2 X_2 + ...$$
+
+$$Y|X_1, ..., X_p \sim Model(\phi = f^{-1}(\eta))$$
+
+--
+
+1. How do we choose $f(\phi)$ and $f^{-1}(\eta)$?
+2. Which response models can we use in this framework?
+3. How do we fit a GLM (hint: `glm()` is one option) and evaluate it?
