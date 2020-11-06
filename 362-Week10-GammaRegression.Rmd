@@ -1,0 +1,736 @@
+---
+title: 'Week 10: Gamma Regression'
+##subtitle: 'Case Study: Child Health and Development Studies'
+##subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+##institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+##xaringanExtra::use_logo(
+##  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+##)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+##xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+##xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+
+## Example: Leukemia survival times
+
+__Example__: Survival times are given for 33 patients who died from acute myelogenous leukemia. Also measured was the patient's white blood cell count at the time of diagnosis. The patients were also factored into 2 groups according to the presence or absence of a morphologic characteristic of white blood cells. Patients termed AG positive were identified by the presence of Auer rods and/or significant granulation of the leukemic cells in the bone marrow at the time of diagnosis.
+
+```{r, message=FALSE, warning=FALSE}
+library(MASS)
+data(leuk)
+```
+
+---
+
+
+## Example: Leukemia survival times
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+head(leuk)
+```
+
+---
+
+
+## Example: Leukemia survival times
+
+```{r, echo=FALSE}
+leuk %>% ggplot(aes(x=wbc, y=time)) + geom_point(aes(col=ag)) + facet_wrap(~ag) + guides(col=FALSE) + labs(x='White Blood Cells', y='Time')
+```
+
+---
+
+## Gamma distribution
+
+$Gamma(r, \lambda)$: Y = time spent waiting for the $r^{th}$ event in a Poisson process with an average rate of $\lambda$ events per unit of time
+
+$$f(y; \lambda) = \frac{\lambda^r}{\Gamma(r)} y^{r-1} e^{-\lambda y}$$
+  
+Write the Gamma distribution as an exponential family. Identify the canonical link.
+
+---
+
+## Gamma distribution
+
+$$f(y; \lambda) = \frac{\lambda^r}{\Gamma(r)} y^{r-1} e^{-\lambda y}$$
+  
+Find $E(Y)$ and $V(Y)$ for the Gamma distribution.
+
+---
+
+## Gamma distribution
+
+Write the full Gamma GLM:
+
+---
+
+## Gamma distribution
+
+Suppose $Y_i \sim Gamma(r, \lambda)$. Find an expression for the _coefficient of variation_, $C_i = SD_i/\mu_i$ in terms of $r$ and $\lambda$.
+
+---
+
+## Gamma distribution: three links
+
+Most software implement three choices of link function. Let $\mu = r/\lambda$.
+
+__Inverse link__: $\frac{1}{\mu_i}$
+
+- This link doesn't guarantee that $\mu>0$, which can cause problems. 
+
+__Log link__: $log(\mu_i)$
+
+- Use this when the effect of the predictors is multiplicative on the mean.
+
+__Identity link__: $\mu_i$
+
+- Useful for modeling variance components or squared terms.
+
+---
+
+## Gamma distribution: three links
+
+Most software implement three choices of link function. Let $\mu = r/\lambda$.
+
+1. _Inverse_ link: $\frac{1}{\mu_i}$
+2. _Log_ link: $log(\mu_i)$
+3. _Identity_ link: $\mu_i$
+
+Why multiple choices for link functions?
+
+---
+
+## Gamma distribution: three links
+
+Most software implement three choices of link function. Let $\mu = r/\lambda$.
+
+1. _Inverse_ link: $\frac{1}{\mu_i}$
+2. _Log_ link: $log(\mu_i)$
+3. _Identity_ link: $\mu_i$
+
+Why isn't the canonical link on this list? 
+
+---
+
+
+## Example: Leukemia survival times
+
+$$b(\theta) = \beta_0 + \beta_1 X_{1i} + \alpha_i$$ 
+
+---
+
+
+## Example: Leukemia survival times
+
+```{r}
+model <- glm(time ~ wbc + ag, data=leuk, family=Gamma)
+summary(model)
+```
+
+---
+
+
+## Example: Leukemia survival times
+
+Interpret the effect of white blood cell count and test outcome (`ag`) on survival time of leukemia.
+
+- How do the predictions change as `wbc` and `ag` change?
+
+```{r, warning=FALSE, message=FALSE}
+summary(leuk)
+```
+
+---
+
+
+## Example: Leukemia survival times
+
+```{r}
+New_Data <- tibble(
+  wbc = c(29000, 29000, 30000, 30000),
+  ag = c('present', 'absent', 'present', 'absent')
+)
+```
+
+---
+
+
+## Example: Leukemia survival times
+
+Interpret the effect of white blood cell count and test outcome (`ag`) on survival time of leukemia.
+
+```{r}
+predict(model, New_Data)
+
+predict(model, New_Data, type='response')
+```
+
+---
+
+
+## Example: Leukemeia survival times
+
+$$b(\theta) = 0.045783185+0.000000428X_i -0.036085592*{present_i} $$
+
+`wbc`|`ag`| $\hat{y}$
+---|---|---
+29000|present|45.25505
+29000|absent|17.18728
+30000|present|44.39601
+30000|absent|17.06189
+
+---
+
+
+## Does the link function make a difference?
+
+```{r}
+model_inverse <- glm(time ~ wbc + ag, data=leuk, 
+                     family=Gamma(link='inverse'))
+model_log <- glm(time ~ wbc + ag, data=leuk, 
+                     family=Gamma(link='log'))
+model_identity <- glm(time ~ wbc + ag, data=leuk, 
+                     family=Gamma(link='identity'))
+```
+
+---
+
+
+## Does the link function make a difference?
+
+```{r}
+model_inverse$coefficients
+model_log$coefficients
+model_identity$coefficients
+```
+
+---
+
+
+## Does the link function make a difference?
+
+```{r}
+AIC(model_inverse)
+AIC(model_log)
+AIC(model_identity)
+```
+
+---
+
+
+## Does the link function make a difference?
+
+`wbc`|`ag`| $\hat{y}_{inverse}$ | $\hat{y}_{log}$ | $\hat{y}_{identity}$
+---|---|---
+29000|present|45.25505|56.90004|63.67501
+29000|absent|17.18728|18.70666|17.50300
+30000|present|44.39601|56.51281|63.54180
+30000|absent|17.06189|18.57935|17.36978
+
+```{r}
+predict(model_identity, New_Data, type='response')
+```
+
+---
+
+## Model evaluation based on predicted values
+
+1. Mean square error ($MSE$):
+
+$$MSE=\frac{1}{n}\sum_{i=1}^{n}(y_{i}-\hat{y}_{i})^{2}$$
+
+2. Mean absolute error ($MAE$):
+
+$$MAE=\frac{1}{n}\sum_{i=1}^{n}\left|y_{i}-\hat{y}_{i}\right|$$
+
+3. Coefficient of determination ($R^2$):
+
+$$Cor(y_{i},\hat{y}_{i})^{2}$$
+
+---
+
+
+## Calculating MSE, MAE, $R^2$
+
+```{r}
+leuk <- leuk %>%
+  mutate(pred_inv = model_inverse$fitted.values, 
+         pred_log = model_log$fitted.values,
+         pred_id = model_identity$fitted.values)
+```
+
+---
+
+
+## Calculating MSE, MAE, $R^2$
+
+MSE: 
+
+```{r}
+leuk %>% summarize(
+  MSE_inv = mean((time-pred_inv)^2),
+  MSE_log = mean((time-pred_log)^2),
+  MSE_id = mean((time-pred_id)^2)
+)
+```
+
+---
+
+
+## Calculating MSE, MAE, $R^2$
+
+MAE: 
+
+```{r}
+leuk %>% summarize(
+  MAE_inv = mean(abs(time-pred_inv)),
+  MAE_log = mean(abs(time-pred_log)),
+  MAE_id = mean(abs(time-pred_id))
+)
+```
+
+---
+
+
+## Calculating MSE, MAE, $R^2$
+
+$R^2$: 
+
+```{r}
+leuk %>% summarize(
+  R2_inv = (cor(time, pred_inv))^2,
+  R2_log = (cor(time, pred_log))^2,
+  R2_id = (cor(time, pred_id))^2
+)
+```
+
+---
+
+
+## Visualizing each model
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(gridExtra)
+p1 <- ggplot(data=leuk, aes(x=time, y=pred_inv)) + geom_point(col='#f9423a') + labs(x='Survival time', y='Fitted values', title='Inverse link')
+p2 <- ggplot(data=leuk, aes(x=time, y=pred_log)) + geom_point(col='#e277cd') + labs(x='Survival time', y='Fitted values', title='Log link')
+p3 <- ggplot(data=leuk, aes(x=time, y=pred_id)) + geom_point(col='#00b2a9') + labs(x='Survival time', y='Fitted values', title='Identity link')
+grid.arrange(p1, p2, p3, nrow=1)
+```
+
+---
+
+
+## Example: Diamond prices
+
+What factors affect the price of a diamond? The `openintro` package contains data for 53,940 `diamonds` on 10 variables.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(openintro)
+data(diamonds)
+head(diamonds)
+```
+
+---
+
+
+## Example: Diamond prices
+
+```{r, echo=FALSE}
+diamonds %>% ggplot(aes(x=price)) + geom_density(fill='#33cc99', alpha=0.5) + labs(x='Diamond price')
+```
+
+---
+
+
+## Example: Diamond prices
+
+```{r, echo=FALSE}
+diamonds %>% ggplot(aes(x=price)) + geom_density(aes(fill=cut), alpha=0.5) + facet_wrap(~cut) + guides(fill=FALSE)
+```
+
+---
+
+
+## Example: Diamond prices
+
+Since the prices are highly right skewed, a Gamma model might be preferred over a Normal model.
+
+1. How does cut affect the price of a diamond?
+2. How does color affect the price of a diamond?
+3. Which variables are most strongly related to price?
+
+---
+
+
+## Example: Diamond prices
+
+```{r}
+model_cut <- glm(price ~ cut, family=Gamma, data=diamonds)
+summary(model_cut)
+```
+
+---
+
+
+## Example: Diamond prices
+
+```{r, echo=FALSE}
+diamonds %>% ggplot(aes(x=price)) + geom_density(aes(fill=color), alpha=0.5) + facet_wrap(~color) + guides(fill=FALSE)
+```
+
+---
+
+
+## Example: Diamond prices
+
+```{r}
+model_color <- glm(price ~ color, family=Gamma, data=diamonds)
+summary(model_color)
+```
+
+---
+
+
+## Example: Diamond prices
+
+```{r, error=TRUE}
+model_all <- glm(price ~ cut + color + clarity + depth + table + carat, family=Gamma, data=diamonds)
+```
+
+---
+
+
+## Example: Diamond prices
+
+How many coefficients will be in this model?
+
+```{r}
+levels(diamonds$cut)
+levels(diamonds$clarity) 
+levels(diamonds$color)
+```
+
+---
+
+
+## Example: Diamond prices
+
+The more coefficients in the model, the more difficult it is to estimate the coefficients. 
+
+- This problem is even more pronounced for non-normal response variables.
+- Why? No direct solution for the model coefficients, so we use _numerical_ estimation.
+
+
+---
+
+
+## Example: Diamond prices
+
+![Parameter space](362-parameterspace.png)
+
+---
+
+
+## Example: Diamond prices
+
+The more coefficients in the model, the more difficult it is to estimate the coefficients. 
+
+- This problem is even more pronounced for non-normal response variables.
+- Why? No direct solution for the model coefficients, so we use _numerical_ estimation.
+
+__Solutions__: 
+
+1. Select better starting values for every coefficient.
+2. Use a simpler model.
+
+---
+
+
+## Example: Predicting insurance claims
+
+The data set `Insurance` in the `MASS` package contains data on the number of car insurance claims made by policyholders in a European country. 
+
+```{r}
+library(MASS)
+data(Insurance)
+head(Insurance)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+There are 64 rows in this data set, each representing a _factorial_ subset of the policyholders for this country.
+
+- There are four `districts`
+- `Group` classifies the engine size into <1 liter, 1-1.5 liters, 1.5-2 liters, and >2 liters
+- `Age` is also split into four groups: <25, 25-29, 30-35, >35
+
+---
+
+
+## Example: Predicting insurance claims
+
+What should we use as the response variable?
+
+```{r, echo=FALSE}
+p1 <- Insurance %>% ggplot(aes(x=Claims)) + geom_density(fill='#33cc99', alpha=0.5)
+p2 <- Insurance %>% ggplot(aes(x=Claims/Holders)) + geom_density(fill='#4ba6f5', alpha=0.5)
+grid.arrange(p1, p2, nrow=1)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 1__: Gamma GLM with `Claims` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+__Option 2__: Gamma GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+__Option 3__: Normal GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+__Option 4__: Binomial GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 1__: Gamma GLM with `Claims` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+```{r, error=TRUE}
+Option_1 <- glm(Claims ~ District + Group + Age, 
+                data=Insurance, family=Gamma)
+```
+
+---
+
+
+## non-positive values not allowed for the 'gamma' family
+
+```{r, error=TRUE}
+Option_1 <- glm(Claims ~ District, data=Insurance, family=Gamma)
+```
+
+```{r, error=TRUE}
+Option_1 <- glm(Claims ~ Group, data=Insurance, family=Gamma)
+```
+
+```{r, error=TRUE}
+Option_1 <- glm(Claims ~ Age, data=Insurance, family=Gamma)
+```
+
+---
+
+
+## non-positive values not allowed for the 'gamma' family
+
+The issue must be in the `Claims` variable.
+
+```{r}
+Insurance %>% 
+  dplyr::select(Claims) %>% 
+  arrange(Claims)
+```
+
+---
+
+
+## non-positive values not allowed for the 'gamma' family
+
+Solution: Make the `0` not a zero.
+
+```{r}
+Insurance2 <- Insurance %>%
+  mutate(Claims2 = ifelse(Claims==0, 0.000001, Claims))
+Insurance2 %>% arrange(Claims2)
+```
+
+---
+
+
+## non-positive values not allowed for the 'gamma' family
+
+```{r}
+Option_1 <- glm(Claims2 ~ District + Group + Age, 
+                data=Insurance2, family=Gamma)
+summary(Option_1)
+```
+
+---
+
+
+## Question: What does .L, .Q, and .C mean?
+
+```{r}
+levels(Insurance2$Group)
+levels(Insurance2$Age)
+```
+
+Solution: Make a new variable with levels that we _can_ recognize.
+
+---
+
+
+## Replace levels with A, B, C, D
+
+```{r}
+Insurance2 <- Insurance2 %>%
+  mutate(Group2 = case_when(
+            Group == "<1l" ~ "A",
+            Group == "1-1.5l" ~ "B",
+            Group == "1.5-2l" ~ "C",
+            Group == ">2l" ~ "D"),
+          Age2 = case_when(
+            Age == "<25" ~ "A",
+            Age == "25-29" ~ "B",
+            Age == "30-35" ~ "C",
+            Age == ">35" ~ "D"))
+```
+
+---
+
+
+## Replace levels with A, B, C, D
+
+```{r}
+head(Insurance2)
+```
+
+- Why didn't I replace Age and Group with 1, 2, 3, or 4?
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 1__: Gamma GLM with `Claims` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+```{r}
+Option_1 <- glm(Claims2 ~ District + Group2 + Age2, 
+                data=Insurance2, family=Gamma)
+```
+
+---
+
+```{r, echo=FALSE}
+summary(Option_1)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 2__: Gamma GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+```{r}
+Option_2 <- glm(Claims2/Holders ~ District + Group2 + Age2, 
+                data=Insurance2, family=Gamma)
+```
+
+---
+
+```{r, echo=FALSE}
+summary(Option_2)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 3__: Normal GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+```{r}
+Option_3 <- glm(Claims2/Holders ~ District + Group2 + Age2, 
+                data=Insurance2)
+```
+
+---
+
+```{r, echo=FALSE}
+summary(Option_3)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+__Option 4__: Binomial GLM with `Claims/Holders` as the response variable and `District`, `Group`, `Age` as explantory variables
+
+```{r}
+Option_4 <- glm(Claims/Holders ~ District + Group2 + Age2, 
+                data=Insurance2, weight=Holders,
+                family='binomial')
+```
+
+---
+
+```{r, echo=FALSE}
+summary(Option_4)
+```
+
+---
+
+
+## Example: Predicting insurance claims
+
+1. How can we choose the "best" model from mulitple response distributions?
+2. What evidence supports which models?

@@ -1,0 +1,522 @@
+---
+title: 'Week 11: Random Effects and Mixed Models'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+## Mixed models: review
+
+The term __mixed models__ refers to models with _both_ fixed and random components.
+
+___Model specification___:
+
+$$y=\mathbf{X}\beta+\mathbf{Z}b+\epsilon$$
+
+- $\mathbf{X}$ is an $n\times p$ matrix of _fixed effects_
+- $\beta$ is a vector of coefficients on the fixed effects
+- $\mathbf{Z}$ is an $n \times q$ matrix of _random effects_
+- $b$ is a vector of coefficients on the random effects
+
+---
+
+## General linear _mixed_ model (GLMM)
+
+$$y=\mathbf{X}\beta+\mathbf{Z}b+\epsilon$$
+--
+
+For non-normal response $y$, replace $y$ with the linear predictor and apply the appropriate link
+
+$$\eta=\mathbf{X}\beta+\mathbf{Z}b+\epsilon$$
+
+$$Y\sim Exponential\:Family(\theta=\eta^{-1})$$
+
+Now you have a __generalized linear mixed model (GLMM)__.
+
+---
+
+## Random effects
+
+Usually the random effects are assumed independent, normally distributed, but this is not a requirement
+
+$$b \sim Normal(0, \sigma^2 G)$$
+
+- If the random effects are uncorrelated, 
+
+$$G=\left[\begin{array}{cccc}
+1 & 0 & ... & 0\\
+0 & 1 & 0 & \vdots\\
+\vdots & 0 & 1 & 0\\
+0 & ... & 0 & 1
+\end{array}\right]$$
+
+---
+
+## Random effects
+
+- If the random effects are correlated, 
+
+$$G=\left[\begin{array}{ccccc}
+\rho_{11} & \rho_{12} & ... & ... & \rho_{1q}\\
+\rho_{21} & \rho_{22} & \rho_{23} & ... & \vdots\\
+\vdots & \rho_{32} & \rho_{33} & ... & 0\\
+\vdots & \vdots & \vdots & \ddots & \rho_{(q-1)q}\\
+\rho_{q1} & ... & ... & \rho_{q(q-1)} & \rho_{qq}
+\end{array}\right]$$
+
+--
+
+- Random effects can also be non-normally distributed
+
+---
+
+## Technical considerations
+
+1. Estimation of mixed effect models
+2. Inference in mixed effect models
+3. Estimating random effects
+4. Prediction
+5. Diagnostics
+
+---
+
+## Estimation of mixed effect models
+
+How does statistical software "fit" these models? We have some requirements for our estimated coefficients/variance components.
+
+__Maximum likelihood estimation__: model parameters are estimated by maximizing a "likelihood function", so that under the assumed model the data observed is the most _probable_ result
+
+- Can be solved analytically in a few cases, in practice usually done numerically
+- This is how we've been fitting generalized linear models using `glm`
+
+--
+
+Maximum likelihood estimation is a simple idea, but there are problems in practice.
+
+---
+
+## Issues with maximum likelihood estimation
+
+1. Negative variances $\sigma^2$ for the random effects and error terms can occur
+2. Maximum likelihood estimates are often biased, especially for variance components
+3. Which numeric optimization routine should we use?
+
+--
+
+Solution: __Restricted maximum likelihood estimation (REML)__
+
+- Find a solution for the random effect parameters _first_, restricting the possible parameter space so that variance components are strictly positive
+- _Then_ find a solution for the fixed effects
+
+REML estimates tend to be less biased.
+
+---
+
+
+## Case study: Paper brightness
+
+Data was collected at a paper production plant to test how paper brightness changes depending on the shift operator.
+
+```{r}
+library(faraway)
+data(pulp)
+head(pulp)
+```
+
+---
+
+
+## Case study: Paper brightness
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+pulp %>% ggplot(aes(x=operator, y=bright)) + 
+  geom_jitter(width=0.1, aes(col=operator)) + 
+  guides(col=FALSE) + labs(x='Operator', y='Brightness')
+```
+
+---
+
+
+## Case study: Paper brightness
+
+Start with a simple one-way ANOVA.
+
+```{r}
+model1 <- aov(bright~operator, data=pulp)
+summary(model1)
+coef(model1)
+```
+
+---
+
+
+## Case study: Paper brightness
+
+`operator` is a _random effect_: if four different operators were selected, the results might be different.
+
+```{r, warning=FALSE, message=FALSE}
+library(lme4)
+model2 <- lmer(bright ~ 1 + (1|operator), data=pulp)
+```
+
+---
+
+
+```{r}
+summary(model2)
+```
+
+---
+
+
+## Case study: Paper brightness (unbalanced)
+
+The paper brightness experiment is _balanced_, since there are the same number of observations in each treatment group. What if the experiment were unbalanced?
+
+```{r, echo=1}
+pulp2 <- pulp[1:19, ]
+pulp2 %>% ggplot(aes(x=operator, y=bright)) + geom_jitter(width=0.1, aes(col=operator)) + guides(col=FALSE) + labs(x='Operator', y='Brightness')
+```
+
+---
+
+
+## Case study: Paper brightness (unbalanced)
+
+Again, start with a simple one-way ANOVA. What changes?
+
+```{r}
+model1_unbalanced <- aov(bright~operator, data=pulp2)
+summary(model1_unbalanced)
+coef(model1_unbalanced)
+```
+
+---
+
+
+## Case study: Paper brightness (unbalanced)
+
+Now, how does the model with `operator` as a random effect change?
+
+```{r, warning=FALSE, message=FALSE}
+library(lme4)
+model2_unbalanced <- lmer(bright ~ 1 + (1|operator), data=pulp2)
+```
+
+---
+
+
+```{r}
+summary(model2_unbalanced)
+```
+
+---
+
+## Inference in mixed effect models
+
+You might have noticed that `lme4` omits p-values from its output. You can get them, but their use is "questionable" at best.
+
+__Testing random effects__: 
+
+1. Decide which component(s) of the model you want to test (random effects)
+2. Specify a null model that doesn't contain the component, and an alternative that does (all other terms in the model should be the same)
+3. Fit both models using `lmer`
+4. Use a __likelihood ratio test__ to compare the two nested models
+
+$$LRT=2\left(LL(Alternative\:Model-LL(Null\:Model)\right) \sim \chi_{p_A - p_0}^2$$
+
+---
+
+## Inference in mixed effect models
+
+__Testing fixed effects__: 
+
+1. Decide which component(s) of the model you want to test (_fixed_ effects)
+2. Specify a null model that doesn't contain the component, and an alternative that does (all other terms in the model should be the same)
+3. Fit both models __without using REML__
+4. Use a __likelihood ratio test__ to compare the two nested models
+
+---
+
+Why?
+
+- REML estimates are calculated by estimating random effects first by considering linear combinations of the data that _remove_ the fixed effects.
+- If the fixed effects are changed, then the likelihoods won't be directly comparable.
+
+---
+
+
+## Case study: Paper brightness
+
+Is the effect of operator significant?
+
+```{r}
+null_model <- lm(bright ~ 1, data=pulp)
+alt_model <- lmer(bright ~ 1 + (1|operator), data=pulp, REML=FALSE)
+LRT <- as.numeric(2*(logLik(alt_model) - logLik(null_model)))
+LRT
+
+# p-value
+1 - pchisq(LRT, df=1)
+```
+
+- Why was `REML=FALSE`?
+
+---
+
+## Inference in mixed effect models
+
+__Parametric bootstrap__: 
+
+1. Generate data under the null model using the fitted parameter estimates
+2. Compute the likelihood ratio test statistic for this generated data
+3. Repeat this process many times, and use that to decide whether the observed test statistic is significant
+
+__Bootstrap assumption__: the sample is an accurate representation of the population
+
+---
+
+
+## Case study: Paper brightness
+
+Is the effect of operator significant using the parametric bootstrap?
+
+```{r}
+y <- simulate(null_model)
+head(y)
+```
+
+---
+
+
+## Case study: Paper brightness
+
+Is the effect of operator significant using the parametric bootstrap?
+
+```{r}
+boot_LRT<- vector(length=1000)
+
+for(i in 1:1000){
+  y <- unlist(simulate(null_model))
+  boot_null <- lm(y ~ 1)
+  boot_alt <- lmer(y ~ 1 + (1|operator), data=pulp, REML=FALSE)
+  boot_LRT[i] <- as.numeric(2*(logLik(boot_alt) - logLik(boot_null)))
+}
+```
+
+---
+
+
+## Case study: Paper brightness
+
+Is the effect of operator significant using the parametric bootstrap?
+
+```{r, echo=FALSE}
+data.frame(boot_LRT) %>% ggplot(aes(x=boot_LRT)) + geom_density() + geom_vline(xintercept=2.568371, col='red')
+
+sum(boot_LRT > 2.568371)/1000
+```
+
+---
+
+## Estimating random effects
+
+In a model with random effects, the $b_i$'s are not very interesting. Why?
+
+$$E(b_i) = 0$$
+
+There is however an interesting relationship between the fixed coefficients from a fixed effects point of view and from a random effects point of view.
+
+---
+
+
+## Case study: Paper brightness
+
+Previously, we fixed a model with `operator` as a fixed effect (`model1`) and one with `operator` as a random effect.
+
+```{r}
+model.tables(model1)
+```
+
+```{r}
+ranef(model2)$operator
+```
+
+---
+
+
+## Case study: Paper brightness
+
+Compute the ratio of the fixed effects estimates for each operator to the random effects estimates.
+
+```{r}
+model.tables(model1)
+```
+
+```{r}
+ranef(model2)$operator
+```
+
+---
+
+## Estimating random effects
+
+It turns out that the predicted random effects will be proportional to the fixed effects estimated on the same variable!
+
+_Detour_: This is an example of a __shrinkage estimate__.
+
+---
+
+## Shrinkage estimates
+
+To calculate a shrinkage estimate, replace the coefficient $\hat{\beta}_k$ with something slightly smaller
+
+$$\tilde{\beta}_k = \frac{1}{1+\lambda} \hat{\beta}_k$$
+
+- If $\lambda=0$, we get our original estimates back
+- For large $\lambda$, the estimated coefficients _shrink_ to zero
+
+---
+
+## Shrinkage estimates
+
+Shrinkage estimates, $\tilde{\beta}_k$, are usually biased.
+
+$$E(\tilde{\beta}_k) = \frac{1}{1+\lambda} E(\hat{\beta}_k) = \frac{1}{1+\lambda} \beta^*_k$$
+
+So why shrink?
+
+---
+
+## Shrinkage estimates
+
+Shrinkage estimates, $\tilde{\beta}_k$, are usually biased.
+
+$$E(\tilde{\beta}_k) = \frac{1}{1+\lambda} E(\hat{\beta}_k) = \frac{1}{1+\lambda} \beta^*_k$$
+
+So why shrink?
+
+- With the right choice of $\lambda$, we can get an estimator with better mean square error (MSE).
+- The estimate is not unbiased, but what we pay for in bias we make up for in variance.
+- We'll explore this phenomenon later in a lab, an R package for implementing shrinkage in GLMs is `shrink`
+
+---
+
+## Shrinkage estimates
+
+![Shrinkage estimation](362-shrinkage.png)
+
+---
+
+## Prediction
+
+Two choices for making predictions in a mixed effects model:
+
+1. We can make a prediction for a new or unknown value of the random effects by using the _fixed effects alone_
+
+```{r}
+predict(model2, re.form=~0)
+```
+
+---
+
+## Prediction
+
+Two choices for making predictions in a mixed effects model:
+
+2. We can make a prediction using the `predict()` function for a specific value of the random effect
+
+```{r}
+new_obs <- tibble(operator=c('a', 'b', 'c', 'd'))
+predict(model2, newdata=new_obs)
+```
+
+---
+
+## Diagnostics
+
+In mixed models, there is more than one kind of fitted value (prediction), resulting in more than one kind of residuals.
+
+- Default predicted values and residuals incorporate the estimated random effects.
+- This means that the default residuals are usually estimates of $\epsilon$ - which is what we want!
+
+Mixed models are particularly sensitive to outliers in the random effects, so pay special attention to the residual plots for those.
+
+---
+
+
+## Case study: Paper brightness
+
+```{r}
+plot(model2)
+```
+
+https://rdrr.io/cran/lme4/man/plot.merMod.html
+
+---
+
+
+## Case study: Paper brightness
+
+```{r, warning=FALSE, message=FALSE}
+library('lattice')
+qqmath(model2, id=0.05)
+```
+

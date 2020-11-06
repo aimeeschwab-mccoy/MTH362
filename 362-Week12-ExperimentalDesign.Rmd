@@ -1,0 +1,601 @@
+---
+title: 'Week 12: Experimental Design'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+## Experimental design
+
+1. Blocking
+2. Split plots
+3. Nesting
+4. Crossed effects
+
+---
+
+
+## Example: Penicillin production
+
+The production of penicillin uses a raw material, corn steep liquor, is quite variable and can only be made in blends sufficient for four runs. There are four processes, A, B, C and D, for the production.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(faraway)
+data(penicillin)
+head(penicillin)
+```
+
+---
+
+
+```{r, echo=FALSE}
+penicillin
+```
+
+---
+
+## Blocking
+
+__Blocks__ are groups of experimental units or subjects that are similar in some intrinsic way
+
+- Examples: Age cohorts, tree transects, _batches_ of some product...
+- Can we explain or account for some of the variability in the data by blocking?
+
+--
+
+_Should blocks be fixed, or or should blocks be random?_
+
+--
+
+Yes? It depends!
+
+---
+
+
+## Example: Penicillin production
+
+Sketch the ANOVA table for this model. Identify the blocking variable. Is it fixed or random?
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+head(penicillin)
+```
+
+---
+
+
+## Example: Penicillin production
+
+```{r, echo=FALSE}
+penicillin %>% ggplot(aes(x=blend, y=yield)) + geom_point(aes(col=treat, pch=treat), cex=2)
+```
+
+---
+
+
+## Example: Penicillin production
+
+Start with the fixed effects model:
+
+```{r}
+model_fixed <- lm(yield ~ treat + blend, data=penicillin)
+summary(model_fixed)
+```
+
+---
+
+
+## Example: Penicillin production
+
+Now the mixed effects model, with `blend` as a blocking variable:
+
+```{r, warning=FALSE, message=FALSE}
+library(lme4)
+model_mixed <- lmer(yield ~ treat + (1|blend), data=penicillin)
+summary(model_mixed)
+```
+
+---
+
+
+```{r, echo=FALSE}
+summary(model_mixed)
+```
+
+---
+
+
+## Example: Penicillin production
+
+```{r}
+ranef(model_mixed)$blend
+```
+
+---
+
+
+## Example: Penicillin production
+
+1. How can we test the fixed effects, `treat`?
+2. In this situation, we might want to test the random effects too.
+
+---
+
+
+## Example: Penicillin production
+
+For the fixed effect, if the data comes from a _balanced experiment_ we can use a simple ANOVA.
+
+```{r}
+anova_fixed <- aov(yield ~ treat + Error(blend), data=penicillin)
+summary(anova_fixed)
+```
+
+---
+
+## Why does the experiment need to be balanced?
+
+When data is balanced, calculating the sums of squares is easy. Consider the case where we have a single explanatory variable.
+
+$$SS_{Trt} = \sum_{i=1}^{n_j}\sum_{j=1}^{k} (y_{ij} - \bar{y_{\circ j}})^2$$
+
+where $k$ is the number of treatment groups, and $n_j$ is the number of observations in group $j$.
+
+The mean squares are found by taking $$SS_{Trt}$$ divided by the degrees of freedom for treatment, $k-1$. 
+
+---
+
+##Why does the experiment need to be balanced?
+
+$$SS_{Trt} = \sum_{i=1}^{n_j}\sum_{j=1}^{k} (y_{ij} - \bar{y_{\circ j}})^2$$
+
+- In a balanced experiment, $n_j$ is the same for all treatment groups.
+- In an unbalanced experiment, $n_j$ varies from treatment group to treatment group.
+
+--
+
+In other words, our _precision_ or how much information we have about each treatment varies. 
+
+---
+
+## Type I, Type II, or Type III?
+
+When data is unbalanced, there are different ways to calculate the sums of squares for ANOVA. 
+
+- There are at least 3 approaches, commonly called Type I, II and III sums of squares.
+
+--
+
+- Thanks, SAS.
+
+---
+
+## Notation
+
+Suppose we have a model with two explanatory factors, A, and B. There is potentially an interaction term, denoted AB. The sums of squares can be calculated for...
+
+- Full model: $SS(A, B, AB)$
+- Model with no interaction $SS(A, B)$
+
+--
+
+Incremental sums of squares:
+
+- $SS(AB|A, B) = SS(A, B, AB) - SS(A, B)$
+- $SS(A | B, AB) = SS(A, B, AB) – SS(B, AB)$
+- $SS(B | A, AB) = SS(A, B, AB) – SS(A, AB)$
+- $SS(A | B) = SS(A, B) – SS(B)$
+- $SS(B | A) = SS(A, B) – SS(A)$
+
+---
+
+## Type I: Sequential sums of squares
+
+Terms are fit in the order in which they are specified (_sequential_):
+
+```{r, eval=FALSE}
+model <- aov(y ~ A + B + A:B, data=data)
+```
+
+--
+
+1. $SS(A)$ for factor A.
+2. $SS(B|A) = SS(A, B) - SS(A)$ for factor B.
+3. $SS(AB|A, B) = SS(A, B, AB) - SS(A, B)$ for the interaction term.
+
+---
+
+
+## Example: penicillin production
+
+Create a new data set, `penicillin_unbalanced`, that is unbalanced.
+
+```{r}
+penicillin_unbalanced <- penicillin[1:19,]
+```
+
+Fit two models: 
+
+```{r}
+model_TypeI_a <- aov(yield ~ treat + blend, 
+                     data=penicillin_unbalanced)
+model_TypeI_b <- aov(yield ~ blend + treat, 
+                     data=penicillin_unbalanced)
+```
+
+---
+
+
+## Example: penicillin production
+
+```{r}
+summary(model_TypeI_a)
+```
+
+---
+
+
+## Example: penicillin production
+
+```{r}
+summary(model_TypeI_b)
+```
+
+---
+
+# ANOVA in R
+
+The `aov` function uses Type I sums of squares _by default_. 
+
+![`aov` documentation](aov_ss.png)
+
+---
+
+# Type II sums of squares
+
+Each factor is fit _after_ all other factors
+
+1. $SS(A|B)$ for factor A
+2. $SS(B|A)$ for factor B
+
+--
+
+_Ignores_ interaction terms.
+
+--
+
+__Example__: How could you get the Type II sums of squares using `aov`?
+
+---
+
+## Type III sums of squares
+
+1. $SS(A|B, AB)$ for factor A
+2. $SS(B|A, AB)$ for factor B
+
+--
+
+Does _not_ ignore interaction terms.
+
+- These are the default in SAS.
+
+---
+
+
+## Type III sums of squares in the `car` package
+
+```{r, warning=FALSE, message=FALSE}
+library(car)
+Anova(lm(yield ~ treat + blend, data=penicillin_unbalanced, 
+         contrasts=list(treat=contr.sum, blend=contr.sum)), 
+      type=3)
+```
+
+---
+
+## Back to mixed models...
+
+What do we do with unbalanced data in a mixed modeling context?
+
+```{r}
+library(pbkrtest)
+treat_model <- lmer(yield ~ treat + (1|blend), 
+                    data=penicillin, REML=FALSE)
+null_model <- lmer(yield ~ 1 + (1|blend), 
+                   data=penicillin, REML=FALSE)
+KRmodcomp(treat_model, null_model)
+```
+
+---
+
+## Back to mixed models...
+
+```{r, eval=FALSE}
+library(pbkrtest)
+treat_model <- lmer(yield ~ treat + (1|blend), 
+                    data=penicillin, REML=FALSE)
+null_model <- lmer(yield ~ 1 + (1|blend), 
+                   data=penicillin, REML=FALSE)
+KRmodcomp(treat_model, null_model)
+```
+
+- `pbkrtest` = `p`arametric `b`ootstrap `k`enward-`r`oger `test`
+- `KRmodcomp()` = `K`enward-`R`oger `mod`el `comp`arison
+
+---
+
+## What about random effects?
+
+`exactRLRT()`: Restricted Likelihood Ratio Tests for additive and linear mixed models
+
+```{r}
+library(RLRsim)
+exactRLRT(model_mixed)
+```
+
+---
+
+## Split plots
+
+In a __split plot__ design, the main plots (experimental units) are split into several subplots. 
+
+- The _main plot_ is treated with a level of one factor
+- The _split plot_ is treated with levels of some other factor
+
+---
+
+## Split plots
+
+![Split plot example from a crop yield experiment.](split_plot_example.png)
+
+---
+
+
+## Example: irrigation
+
+In an agricultural field trial, the objective was to determine the effects of two crop varieties and four different irrigation methods. Eight fields were available, but only one type of irrigation may be applied to each field. The fields may be divided into two parts with a different variety planted in each half. The whole plot factor is the method of irrigation, which should be randomly assigned to the fields. Within each field, the variety is randomly assigned.
+
+---
+
+
+## Example: irrigation
+
+Which effects are __fixed__ and which are __random__?
+
+- Crop varieties (2)
+
+- Irrigation methods (4)
+
+- Field (8)
+
+- Subplot (2 per field)
+
+--
+
+Draw a plot plan of this experiment.
+
+---
+
+
+## Example: irrigation
+
+```{r, echo=FALSE}
+data(irrigation)
+irrigation %>% ggplot(aes(x=field, y=yield)) + geom_point(aes(col=irrigation, pch=variety), cex=2)
+```
+
+---
+
+
+## Example: irrigation
+
+Should we include an interaction term for `irrigation:variety`? What would the interaction mean?
+
+```{r, echo=FALSE}
+irrigation %>% group_by(irrigation, variety) %>%
+  summarize(mean=mean(yield)) %>%
+  ggplot(aes(x=variety, y=mean)) + 
+  geom_point(aes(col=irrigation)) + 
+  geom_line(aes(group=irrigation, col=irrigation)) + 
+  labs(y='mean(yield)')
+```
+
+---
+
+
+## Example: irrigation
+
+```{r, eval=FALSE}
+model <- lmer(yield ~ irrigation + variety + (1|field), 
+              data=irrigation)
+summary(model)
+```
+
+---
+
+
+```{r, echo=FALSE}
+model <- lmer(yield ~ irrigation + variety + (1|field), 
+              data=irrigation)
+summary(model)
+```
+
+---
+
+
+## Example: irrigation
+
+Is `irrigation` significant?
+
+```{r}
+library(pbkrtest)
+model_no_irrigation <- lmer(yield ~ variety + (1|field), 
+                            data=irrigation)
+KRmodcomp(model, model_no_irrigation)
+```
+
+---
+
+
+## Example: irrigation
+
+Is `variety` significant?
+
+```{r}
+model_no_variety <- lmer(yield ~ irrigation + (1|field), 
+                         data=irrigation)
+KRmodcomp(model, model_no_variety)
+```
+
+---
+
+
+## Example: irrigation
+
+Is the random `field` effect significant?
+
+```{r}
+exactRLRT(model)
+```
+
+---
+
+## Nested effects
+
+When levels of one factor vary only within the levels of another factor, we say that factor is _nested_.
+
+- Example: Employees working at a single job location
+
+--
+
+If levels vary across the levels of another factor, we say that the factors are _crossed_.
+
+---
+
+
+## Example: Lab testing
+
+Consistency between laboratory tests is important and yet the results may depend on who did the test and where the test was performed. In an experiment to test levels of consistency, a large jar of dried egg powder was divided up into a number of samples. Because the powder was homogenized, the fat content of the samples is the same, but this fact is withheld from the laboratories. Four samples were sent to each of six laboratories. Two of the samples were labeled as G and two as H, although in fact they were identical. The laboratories were instructed to give two samples to two different technicians. The technicians were then instructed to divide their samples into two parts and measure the fat content of each. So each laboratory reported eight measures, each technician four measures, that is, two replicated measures on each of two samples.
+
+---
+
+
+## Example: Lab testing
+
+```{r}
+data(eggs)
+head(eggs)
+```
+
+---
+
+
+## Example: Lab testing
+
+Is technician "one" in Lab I the same as technician "one" in Lab II?
+
+```{r, echo=FALSE}
+eggs %>% ggplot(aes(x=Lab, y=Fat)) + geom_point(aes(col=Sample, pch=Technician), cex=2)
+```
+
+---
+
+
+## Example: Lab testing
+
+Is `Sample` G for `Technician` one in Lab I the same as `Sample` G for `Technician` two in Lab I?
+
+```{r, echo=FALSE}
+eggs %>% ggplot(aes(x=Lab, y=Fat)) + geom_point(aes(col=Sample, pch=Technician), cex=2)
+```
+
+---
+
+
+## Example: Lab testing
+
+There are _two levels_ of nesting in this experiment:
+
+- `Technician` is nested within `Lab`
+- `Sample` is nested within `Technician` within `Lab`
+
+We want to account for all of this when we fit the model.
+
+--
+
+Are these fixed or random effects?
+
+---
+
+
+## Example: Lab testing
+
+Write the model as specified by the code below.
+
+```{r}
+model <- lmer(Fat ~ 1 + (1|Lab) + (1|Lab:Technician) +
+                (1|Lab:Technician:Sample), data=eggs)
+```
+
+---
+
+
+```{r, echo=FALSE}
+summary(model)
+```

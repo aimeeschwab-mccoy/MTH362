@@ -61,7 +61,7 @@ library(patchwork)
 library(kableExtra)
 ```
 
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -75,7 +75,7 @@ library(tidyverse)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -85,7 +85,7 @@ head(wcgs)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -106,7 +106,7 @@ Variable|Description
 `arcus`|Arcus senilis is a factor with levels "absent", "present"
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -119,7 +119,7 @@ wcgs %>% group_by(chd, typechd) %>%
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -132,7 +132,7 @@ wcgs %>% ggplot(aes(x=chol, y=chd)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -199,7 +199,7 @@ $$SD(Y)=np(1-p)$$
 - Natural extension of the binary/Bernoulli model, with the same canonical link.
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -211,7 +211,7 @@ model_chd <- glm(chd_binary~chol, data=wcgs, family='binomial')
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -220,7 +220,7 @@ summary(model_chd)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -231,7 +231,7 @@ class: inverse
 3. Find the predicted probability of developing coronary heart disease for someone whose cholesterol is 300.
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -248,7 +248,7 @@ wcgs %>%
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -290,7 +290,7 @@ Using logistic regression models to make inferences requires a few assumptions:
 4. __Linearity__: The log of the odds ratio $log(p/(1-p))$ must be a linear function of $x$.
 
 ---
-class: inverse
+
 
 ## Case study: Heart disease
 
@@ -300,7 +300,7 @@ plot(model_chd)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -313,7 +313,7 @@ head(AudioVisual)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -325,7 +325,7 @@ AudioVisual %>% ggplot(aes(x=ResponseTime, y=Stimulus)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -337,7 +337,7 @@ summary(model_reaction)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -349,7 +349,7 @@ How can we evaluate the model assumptions?
 4. __Linearity__: The log of the odds ratio $log(p/(1-p))$ must be a linear function of $x$.
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -361,7 +361,7 @@ plot(model_reaction)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -374,7 +374,7 @@ AudioVisual %>% ggplot(aes(x=ResponseTime, y=Stimulus)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -385,7 +385,7 @@ glimpse(AudioVisual)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
@@ -396,14 +396,14 @@ AudioVisual %>% ggplot(aes(x=ResponseTime, y=StimulusBinary)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: Response times
 
 Do you have any concerns about this model?
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -412,14 +412,14 @@ One of the most enduring tools to measure Hollywood’s gender bias is a test or
 - http://bechdeltestfest.com/about/
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
 Using Bechdel test data, FiveThirtyEight analyzed 1,794 films released from 1990 to 2013 to examine the relationship between the prominence of women in a film and that film’s budget and gross profits. We'll repeat that analysis with the `bechdel` data set from the `fivethirtyeight` package.
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -430,7 +430,7 @@ glimpse(bechdel)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -441,7 +441,7 @@ bechdel %>% ggplot(aes(x=year, y=binary)) + geom_point(alpha=0.1)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -455,7 +455,7 @@ bechdel %>% ggplot(aes(x=year, y=binary)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -470,7 +470,7 @@ bechdel %>% ggplot(aes(x=year, y=binary2)) +
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -480,7 +480,7 @@ summary(model_bechdel)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -495,7 +495,7 @@ glimpse(bechdel2)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -504,7 +504,7 @@ bechdel2 %>% ggplot(aes(x=year, y=prop)) + geom_point()
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -514,7 +514,7 @@ summary(model_bechdel2a)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -524,7 +524,7 @@ summary(model_bechdel2b)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -534,7 +534,7 @@ summary(model_bechdel2c)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 
@@ -544,7 +544,7 @@ summary(model_bechdel2d)
 ```
 
 ---
-class: inverse
+
 
 ## Case study: The Bechdel test
 

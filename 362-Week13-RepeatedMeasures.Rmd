@@ -1,0 +1,709 @@
+---
+title: 'Week 13: Repeated Measures (Longitudinal Data)'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+
+## Example: Income study (PSID)
+
+The Panel Study of Income Dynamics (PSID), begun in 1968, is a __longitudinal__ study of a representative sample of US adults, and is still ongoing at the University of Michigan. 
+
+https://psidonline.isr.umich.edu/
+
+For this section, we'll start with a random sample of this data set consisting of 85 heads of household between the ages of 25-39 in 1968 that had complete data fro at least 11 years between 1968 and 1990.
+
+```{r}
+library(faraway)
+data(psid)
+head(psid)
+nrow(psid)
+```
+
+---
+
+
+## Example: Income study (PSID)
+
+Variables recorded in this data set include:
+
+- `age`: age in 1968
+- `educ`: years of education
+- `sex`: sex of individual, F or M
+- `income`: annual income in dollars
+- `year`: calendar year
+- `person`: ID number for individual
+
+Let's start with a simple question: how has income changed over time?
+
+---
+
+
+## Example: Income study (PSID)
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+psid %>% ggplot(aes(x=year, y=income)) + geom_point()
+```
+
+---
+
+
+## Example: Income study (PSID)
+
+If we want to see individual, person-level trends, we'll need to modify this plot.
+
+```{r, warning=FALSE, message=FALSE, eval=FALSE}
+library(tidyverse)
+library(viridis)
+psid %>% ggplot(aes(x=year, y=income)) + 
+  geom_line(aes(col=person, group=person), alpha=0.8) + 
+  scale_colour_viridis_c()
+```
+
+---
+
+
+## Example: Income study (PSID)
+
+If we want to see individual, person-level trends, we'll need to modify this plot.
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(viridis)
+psid %>% ggplot(aes(x=year, y=income)) + 
+  geom_line(aes(col=person, group=person), alpha=0.8) + 
+  scale_colour_viridis_c()
+```
+
+---
+
+
+## Example: Income study (PSID)
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(viridis)
+psid %>% ggplot(aes(x=year, y=income)) + 
+  geom_line(aes(col=person, group=person), alpha=0.8) + 
+  scale_colour_viridis_c() + scale_y_log10() + 
+  labs(x='Year', y='Income (log scale)')
+```
+
+How should we model this data?
+
+---
+
+
+## Option 1: Model subject by subject
+
+Start with subject 1:
+
+```{r, eval=FALSE}
+psid %>% filter(person==1) %>% 
+  ggplot(aes(x=year, y=income)) + 
+  geom_line() + 
+  geom_smooth(method='lm') + 
+  scale_y_log10() + 
+  labs(x='Year', y='Income (log scale)',
+       title='Person 1') 
+```
+
+---
+
+
+## Option 1: Model subject by subject
+
+```{r, echo=FALSE}
+psid %>% filter(person==1) %>% 
+  ggplot(aes(x=year, y=income)) + 
+  geom_line() + 
+  geom_smooth(method='lm') + 
+  scale_y_log10() + 
+  labs(x='Year', y='Income (log scale)',
+       title='Person 1') 
+```
+
+---
+
+
+## Option 1: Model subject by subject
+
+How can we set up the model?
+
+```{r}
+model_s1 <- lm(log(income) ~ I(year-70), 
+               subset=(person==1), data=psid)
+```
+
+---
+
+
+```{r}
+summary(model_s1)
+```
+
+--
+
+We would then have to repeat this subject by subject by subject. But what do we learn?
+
+---
+
+
+## Option 2 (Better!)
+
+Allow for two random effects related to person:
+
+1. A random intercept effect
+2. A random slope "bump" from person to person
+
+$$ln(Y_ij) = \beta_0 + \beta_1 year_i + \beta_2 sex_j + \beta_3 educ_j + \beta_4 age_j + b_{0j} + b_{1j} year_i + \epsilon_ij$$ 
+
+for subject $j$ in year $i$. 
+
+---
+
+
+# Option 2 (Better!)
+
+```{r, message=TRUE, warning=TRUE}
+library(lme4)
+model <- lmer(log(income) ~ year + sex + educ + 
+                age + (year|person), data=psid)
+```
+
+What's causing this warning?
+
+---
+
+
+# Fixed it
+
+```{r}
+psid <- psid %>% mutate(year2 = year - min(year))
+
+model <- lmer(log(income) ~ year2 + sex + educ + 
+                age + (year2|person), data=psid)
+```
+
+---
+
+
+```{r}
+summary(model)
+```
+
+---
+
+
+## Checking for interactions
+
+Do we need an interaction term for sex and year?
+
+```{r, echo=FALSE}
+psid %>% group_by(year, sex) %>%
+  summarize(mean=mean(log(income))) %>%
+  ggplot(aes(x=year, y=mean)) + 
+  geom_point(aes(col=sex)) + 
+  geom_line(aes(group=sex, col=sex)) + 
+  geom_smooth(method='lm', aes(col=sex)) + 
+  labs(y='mean(log(income))')
+```
+
+---
+
+
+## Checking for interactions
+
+Do we need an interaction term for sex and education?
+
+```{r, echo=FALSE}
+psid %>% group_by(educ, sex) %>%
+  summarize(mean=mean(log(income))) %>%
+  ggplot(aes(x=educ, y=mean)) + 
+  geom_point(aes(col=sex)) + 
+  geom_line(aes(group=sex, col=sex)) + 
+  geom_smooth(method='lm', aes(col=sex)) + 
+  labs(y='mean(log(income))')
+```
+
+---
+
+
+## Checking for interactions
+
+Do we need an interaction term for sex and age?
+
+```{r, echo=FALSE}
+psid %>% group_by(age, sex) %>%
+  summarize(mean=mean(log(income))) %>%
+  ggplot(aes(x=age, y=mean)) + 
+  geom_point(aes(col=sex)) + 
+  geom_line(aes(group=sex, col=sex)) + 
+  geom_smooth(method='lm', aes(col=sex)) + 
+  labs(y='mean(log(income))')
+```
+
+---
+
+
+## Adding interaction terms
+
+The only variables that _might_ need an interaction term are sex and education. Let's add it to the model and see what happens.
+
+```{r}
+model2 <- lmer(log(income) ~ year2 + sex*educ + age + 
+                 (year2|person), data=psid)
+```
+
+---
+
+
+```{r}
+summary(model2)
+```
+
+---
+
+
+## Testing interaction terms
+
+Does adding this interaction term significantly improve the model?
+
+```{r, message=FALSE, warning=FALSE}
+library(pbkrtest)
+KRmodcomp(model2, model)
+```
+
+---
+
+
+## Adding interaction terms
+
+What about year and sex?
+
+```{r}
+model3 <- lmer(log(income) ~ year2*sex + educ + 
+                 age + (year2|person), data=psid)
+```
+
+---
+
+
+```{r}
+summary(model3)
+```
+
+---
+
+
+## Testing interaction terms
+
+Does adding this interaction term significantly improve the model?
+
+```{r, message=FALSE, warning=FALSE}
+library(pbkrtest)
+KRmodcomp(model3, model)
+```
+
+---
+
+
+## Evaluating the model
+
+Let's evaluate `model3` as our preferred model:
+
+$$ln(Y_ij) = \beta_0 + \beta_1 year_i + \beta_2 sex_j + \beta_{12} (year_i \times sex_j) + $$
+$$\beta_3 educ_j + \beta_4 age_j + b_{0j} + b_{1j} year_i + \epsilon_{ij}$$ 
+
+for subject $j$ in year $i$. 
+
+---
+
+
+## Evaluating the model
+
+Write the fitted model.
+
+```{r, eval=FALSE}
+summary(model3)
+```
+
+---
+
+
+## Evaluating the model
+
+__Example__: Predict the income for `person` 1 in:
+
+1. 1970
+2. 1975
+3. 1980
+4. 1985
+5. 1990
+
+```{r, echo=TRUE}
+psid %>% 
+  filter(person==1) %>% 
+  filter(year2==0)
+```
+
+---
+
+
+## Fixed effects or random effects
+
+Fit a fixed effects _only_ model and predict for `person` 1. Which model had more accurate predictions for `person` 1?
+
+```{r}
+model.fixed <- lm(log(income) ~ year2*sex + educ + age, data=psid)
+summary(model.fixed)
+```
+
+---
+
+
+## Comparing model predictions
+
+```{r, echo=FALSE}
+predict.fixed <- model.fixed$fitted.values
+predict.random <- predict(model3)
+predict <- tibble(predict.fixed, predict.random)
+
+predict %>% ggplot(aes(x=predict.fixed, y=predict.random)) + geom_point() + labs(x='Predictions (fixed model)', y='Predictions (random model)')
+```
+
+What do the lines represent?
+
+---
+
+
+## Comparing model predictions
+
+```{r, echo=FALSE}
+predict$person <- psid$person
+predict %>% ggplot(aes(x=predict.fixed, y=predict.random)) + geom_line(aes(col=person, group=person)) + labs(x='Predictions (fixed model)', y='Predictions (random model)') + scale_colour_viridis_c()
+```
+
+The models look similar, but clearly there are some differences. Which does a better job of predicting the observed log(income)?
+
+---
+
+
+## Comparing model predictions
+
+```{r, echo=FALSE}
+predict$observed <- log(psid$income)
+MSPE1 <- mean((predict$observed - predict$predict.random)^2)
+MAPE1 <- mean(abs(predict$observed - predict$predict.random))
+predict %>% ggplot(aes(x=observed, y=predict.random)) + 
+  geom_line(aes(col=person, group=person)) + 
+  labs(x='Observed log(income)', y='Predictions (random model)', 
+       title=paste('MSPE: ', round(MSPE1, 3), ', MAPE:', round(MAPE1, 3))) + 
+  scale_colour_viridis_c()
+```
+
+---
+
+
+## Comparing model predictions
+
+```{r, echo=FALSE}
+MSPE2 <- mean((predict$observed - predict$predict.fixed)^2)
+MAPE2 <- mean(abs(predict$observed - predict$predict.fixed))
+predict %>% ggplot(aes(x=observed, y=predict.fixed)) + 
+  geom_line(aes(col=person, group=person)) + 
+    labs(x='Observed log(income)', y='Predictions (random model)', 
+       title=paste('MSPE: ', round(MSPE2, 3), ', MAPE:', round(MAPE2, 3))) + 
+  scale_colour_viridis_c()
+```
+
+---
+
+
+## Example: Vision testing
+
+The acuity of vision for seven subjects was tested. The response is the lag in milliseconds between a light flash and a response in the cortex of the eye. Each eye is tested at four different powers of lens. An object at the distance of the second number appears to be at distance of the first number.
+
+Variables include:
+
+- `acuity`: a numeric vector
+- `power`: a factor with levels 6/6, 6/18, 6/36, 6/60
+- `eye`: a factor with levels "left", "right"
+- `subject`: a factor with levels 1, 2, 3, 4, 5, 6, 7
+
+---
+
+
+## Example: Vision testing
+
+```{r}
+head(vision)
+data(vision)
+```
+
+---
+
+
+## Example: Vision testing
+
+Fixed variables: `power`
+
+Random variables: `subject`, `eye`
+
+- Why is `eye` best treated as a random effect?
+
+Level of "repetition": `subject`
+
+---
+
+
+## Example: Vision testing
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+vision %>% ggplot(aes(x=power, y=acuity)) + 
+  geom_line(aes(col=eye, group=eye), alpha=0.8) + 
+  geom_point(aes(col=eye)) + 
+  labs(x='Power', y='Visual acuity') + 
+  facet_wrap(~subject)
+```
+
+Is there any nesting in our data?
+
+---
+
+
+## Building the model
+
+Our model is:
+
+$$y_{ijk} = \mu + \rho_j + s_i + e_{ik} + \epsilon_{ijk}$$
+
+where $i=1,..., 7$ denotes subjects, $j=1, ..., 4$ denotes prescription power, and $k=1, 2$ denotes the eye. The power effect is fixed, so I've used a Greek letter ($\rho _i$), and the subject and eye effects are random. 
+
+```{r}
+model <- lmer(acuity ~ power + (1|subject) +
+                (1|subject:eye), data=vision)
+```
+
+---
+
+
+```{r}
+summary(model)
+```
+
+---
+
+
+## Testing for fixed effects
+
+```{r}
+library(pbkrtest)
+alt_model <- lmer(acuity ~ power + (1|subject) + (1|subject:eye), 
+                  data=vision, REML=FALSE)
+null_model <- lmer(acuity ~ 1 + (1|subject) + (1|subject:eye), 
+                   data=vision, REML=FALSE)
+KRmodcomp(alt_model, null_model)
+```
+
+---
+
+
+## Testing for fixed effects
+
+Does it matter whether `REML=FALSE` or `REML=TRUE`?
+
+```{r}
+alt_model2 <- lmer(acuity ~ power + (1|subject) + (1|subject:eye), 
+                   data=vision, REML=TRUE)
+null_model2 <- lmer(acuity ~ 1 + (1|subject) + (1|subject:eye), 
+                    data=vision, REML=TRUE)
+KRmodcomp(alt_model2, null_model2)
+```
+
+---
+
+
+## Effect of the outlier?
+
+What if we remove the outlier? Which observation is it?
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+vision %>% ggplot(aes(x=power, y=acuity)) + 
+  geom_line(aes(col=eye, group=eye), alpha=0.8) + 
+  geom_point(aes(col=eye)) + 
+  labs(x='Power', y='Visual acuity') + 
+  facet_wrap(~subject) + 
+  geom_label(label=rownames(vision))
+```
+
+---
+ 
+
+```{r, echo=FALSE}
+model_no43 <- lmer(acuity ~ power + (1|subject) + 
+                     (1|subject:eye), subset=-43, data=vision)
+summary(model_no43)
+```
+
+---
+
+
+## Effect of the outlier?
+
+```{r}
+alt_model <- lmer(acuity ~ power + (1|subject) + (1|subject:eye),
+                  data=vision, subset=-43, REML=FALSE)
+null_model <- lmer(acuity ~ 1 + (1|subject) + (1|subject:eye), 
+                   data=vision, subset=-43, REML=FALSE)
+KRmodcomp(alt_model, null_model)
+```
+
+---
+
+
+## What should be done about the outlier?
+
+We can decide by examining:
+
+1. Residual plots
+2. Fitted value v. observed value plots
+3. MSE
+
+```{r}
+vision <- vision %>% mutate(fitted = fitted(model))
+vision_no43 <- vision[-43,] %>%
+  mutate(fitted = fitted(model_no43))
+```
+
+---
+
+
+## Residual plots
+
+Start with residual plots for the model __with the outlier__:
+
+```{r, echo=TRUE}
+plot(model)
+```
+
+---
+
+
+## Residual plots
+
+... and __without the outlier__:
+
+```{r, echo=TRUE}
+plot(model_no43)
+```
+
+---
+
+
+## Residual plots
+
+With the outlier...
+
+```{r, warning=FALSE, echo=TRUE}
+library('lattice')
+qqmath(model)
+```
+
+---
+
+
+## Residual plots
+
+Without the outlier...
+
+```{r, echo=TRUE}
+qqmath(model_no43)
+```
+
+---
+
+
+## Fitted value v. observed value plots
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+p1 <- vision_no43 %>% ggplot(aes(x=acuity, y=fitted)) + geom_point(aes(col=subject)) + labs(title='No outlier')
+p2 <- vision %>% ggplot(aes(x=acuity, y=fitted)) + geom_point(aes(col=subject)) + labs(title='Full data')
+library(gridExtra)
+grid.arrange(p1, p2, nrow=1)
+```
+
+---
+
+
+## Fitted value v. observed value plots
+
+MSE and MAE:
+
+```{r}
+vision %>% summarize(MSE = mean((fitted-acuity)^2), 
+                     MAE = mean(abs(fitted-acuity)))
+
+vision_no43 %>% summarize(MSE = mean((fitted-acuity)^2), 
+                     MAE = mean(abs(fitted-acuity)))
+```
+
