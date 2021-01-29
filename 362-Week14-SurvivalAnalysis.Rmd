@@ -1,0 +1,841 @@
+---
+title: 'Week 14: Survival Analysis'
+#subtitle: 'Case Study: Child Health and Development Studies'
+#subtitle: "<span style = 'font-size: 90%;'>Sections 1.1-1.3</span>"
+author: "Statistical Modeling"
+date: "Last updated: `r Sys.Date()`"
+#institute: '`r icon::fa("twitter")` AimeeSMcCoy <br> `r icon::fa("envelope")` aimeeschwab-mccoy@creighton.edu'
+output:
+  xaringan::moon_reader:
+    css: xaringan-themer.css
+    lib_dir: libs
+    nature:
+      titleSlideClass: ['left', 'middle', 'inverse']
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{css, include=FALSE}
+@media print {
+  .has-continuation {
+    display: block !important;
+  }
+}
+
+```
+
+```{r xaringan-setup, include=FALSE}
+library(xaringanthemer)
+library(xaringanExtra)
+style_duo_accent(primary_color = "#005A6F",
+                 secondary_color = "#f1fffe",
+  header_font_google = google_font("Source Sans Pro"),
+  text_font_google = google_font("Source Sans Pro"))
+
+#xaringanExtra::use_logo(
+#  image_url = "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Creighton_University_seal.svg/1200px-Creighton_University_seal.svg.png"
+#)
+
+
+xaringanExtra::use_tachyons()
+
+xaringanExtra::use_tile_view()
+
+xaringanExtra::use_fit_screen()
+
+xaringanExtra::use_editable(expires = 1)
+
+#xaringanExtra::use_slide_tone()
+
+xaringanExtra::use_panelset()
+
+xaringanExtra::use_extra_styles(hover_code_line = TRUE, mute_unhighlighted_code = FALSE)
+#xaringanExtra::use_extra_styles(mute_unhighlighted_code = TRUE)
+
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE, fig.width=10, fig.height=5, cache=TRUE)
+
+library(tidyverse)
+library(RColorBrewer)
+library(patchwork)
+library(kableExtra)
+```
+
+
+
+## Survival analysis
+
+__Idea__: How long until _something_ happens? How long will our subjects "survive"?
+
+--
+
+Survival analysis is used on __time to event__ data.
+
+Examples:
+
+- Time until a heart attack
+- Time until cancer remission
+- Time until death
+
+--
+
+Why should time to event data be treated differently?
+
+---
+
+## Time to event data
+
+Time to event (TTE) data are often __skewed__
+
+--
+
+- Time to relapse in high risk patients: most relapses will likely occur early on, with a few coming later
+
+--
+
+- Age at death in the US: most Americans die in their 60s-80s, with relatively few dying younger
+
+--
+
+__Complete data__ is not always available on each subject
+
+--
+
+- What if a patient doesn't relapse? What if the study ends before the patient relapses?
+
+---
+
+## Censoring
+
+When we have incomplete information, we say that a particular variable is __censored__.
+
+- __Right censoring__: a participant does not have the event of interest during the study, and their last observed follow-up time is less than their (unknown) time to event
+
+---
+
+## Example: Myocardial infarction
+
+A small prospective study is run and follows ten participants for the development of myocardial infarction (MI, or heart attack) over a period of 10 years. Participants are recruited into the study over a period of two years and are followed for up to 10 years. The graphic below indicates when they enrolled and what subsequently happened to them during the observation period.
+
+![](img-right_censor.png)
+
+--
+
+Three patients are right censored, which ones?
+
+---
+
+## Example: Myocardial infarction
+
+Based on this data, what is the likelihood that a participant will suffer an MI over 10 years?
+
+![](img-right_censor.png)
+
+---
+
+## Censoring
+
+An important assumption that we make is that censoring is __non-informative__.
+
+--
+
+- Censoring is independent or unrelated to the likelihood of developing the event of interest
+
+---
+
+## Example: Myocardial infarction
+
+Based on __this__ data, what is the likelihood that a participant will suffer an MI over 10 years?
+
+![](img-right_censor2.png)
+
+---
+
+## Survival data
+
+__Survival analysis__ focuses on two pieces of information:
+
+1. __Whether or not a participant suffers the event__ of interest (1 = event occurred or 0 = event did not occur)
+2. The __follow-up time__ for each participant
+
+--
+
+We assume that our participants "start at" __time zero__.
+
+- Enrollment in the study
+- Baseline age
+
+--
+
+Calendar time $\ne$ event time in survival analysis.
+
+---
+
+## Survival function
+
+The __survival function__ defines the probability of survival up to a time, $t$.
+
+$$S(t) = P(T>t) \ for \ 0<t<\infty$$
+
+--
+
+```{r, echo=FALSE}
+t <- seq(from=0, to=10, length=100)
+St <- exp(-2*t)
+
+library(tidyverse)
+
+data <- tibble(t, St)
+data %>% ggplot(aes(x=t, y=St)) + 
+  geom_line(col='blue') + 
+  labs(x='Time, t', y='S(t)')
+```
+
+---
+
+## Hazard function
+
+The __hazard function__ can be thought of as the instantaneous failure rate. That is, given that someone has survived until time $t$, what is the probability that they will fail in the next small interval of time?
+
+$$h(t)=\lim_{\delta\rightarrow0}\frac{P(t<T<t+\delta\vert T>t)}{\delta}$$
+
+- Also called the intensity function.
+
+--
+
+In calculus terms, how are the hazard function and survival function related?
+
+---
+
+## Cumulative risk function
+
+The __cumulative risk function__ is
+
+$$F(t)=P(T\le t) = 1 - S(t)$$
+
+The cumulative risk function represents the probability of failure at or before time $t$.
+
+--
+
+- In generic probability terms, this is the __cumulative distribution function__.
+
+--
+
+The derivative of the cumulative risk function is denoted $f(t) = \frac{d}{dt}F(t)$. Then...
+
+--
+
+$$h(t)=\lim_{\delta\rightarrow0}\frac{P(t<T<t+\delta\vert T>t)}{\delta} = \frac{f(t)}{S(t)}$$
+
+---
+
+## Hazard function
+
+$$h(t)=\lim_{\delta\rightarrow0}\frac{P(t<T<t+\delta\vert T>t)}{\delta} = \frac{f(t)}{S(t)}$$
+
+The hazard at time $t$ is the __probability that an event occurs in the "neighborhood" around $t$, divided by the probability the subject is alive at time $t$__.
+
+--
+
+The __cumulative hazard function__ is the area under the hazard curve up to time $t$:
+
+$$H(t)=\int_0^t h(u) du$$
+
+The survival function works out to be...
+
+--
+
+$$S(t) = exp(-H(t))$$
+
+---
+
+## Example: US life expectancies
+
+The data set `survexp.us` from the `survival` package contains daily hazard rates from 1940 to 2004 for Americans.
+
+```{r}
+library(tidyverse)
+library(survival)
+
+head(survexp.us)
+```
+
+---
+
+## Example: US life expectancies
+
+```{r}
+haz2014 <- as.matrix(survexp.us[, , '2014'])
+head(haz2014)
+```
+
+---
+
+## Example: US life expectancies
+
+```{r}
+haz2014.df <- as.data.frame(haz2014)
+haz2014.df$age <- 0:109
+
+haz2014.df %>%
+  ggplot(aes(x=age, y=male)) + 
+  geom_line() + 
+  labs(x='Age in years', y='Hazard function')
+```
+
+---
+
+## Example: US life expectancies
+
+```{r}
+haz2014.df <- pivot_longer(haz2014.df, 
+                           cols=c('male', 'female'), 
+                           names_to='gender', 
+                           values_to='hazard')
+
+head(haz2014.df)
+```
+
+---
+
+## Example: US life expectancies
+
+```{r}
+haz2014.df %>%
+  ggplot(aes(x=age, y=hazard)) + 
+  geom_line(aes(col=gender)) + 
+  labs(x='Age in years', y='Hazard function', col='Gender')
+```
+
+---
+
+## Example: US life expectancies
+
+```{r}
+haz2014.df %>%
+  ggplot(aes(x=age, y=hazard)) + 
+  geom_line(aes(col=gender)) + 
+  labs(x='Age in years', y='Hazard function, h(t)', col='Gender') +
+  scale_y_log10()
+```
+
+---
+
+## Example: US life expectancies
+
+```{r, echo=1:2}
+# Hazard is defined daily, so multiply by days per year
+haz2014.df <- haz2014.df %>%
+  group_by(gender) %>%
+  mutate(tot.hazard = cumsum(hazard*365.24))
+
+haz2014.df %>%
+  ggplot(aes(x=age, y=tot.hazard)) + 
+  geom_line(aes(col=gender)) + 
+  labs(x='Age in years', y='Cumulative hazard function, H(t)', col='Gender') 
+```
+
+---
+
+## Example: US life expectancies
+
+```{r, echo=1}
+haz2014.df <- haz2014.df %>%
+  mutate(survival = exp(-tot.hazard))
+
+haz2014.df %>%
+  ggplot(aes(x=age, y=survival)) + 
+  geom_line(aes(col=gender)) + 
+  labs(x='Age in years', y='Survival function, S(t)', col='Gender') 
+```
+
+---
+
+## Parametric survival models
+
+__Exponential model__:
+
+- Simplest option, with a constant hazard
+
+--
+
+$$h(t) = \lambda$$
+
+--
+
+$$H(t) = \int_0^t h(u)du = \int_0^t \lambda du = \lambda t$$
+
+--
+
+$$S(t) = e^{-\lambda t}$$
+
+---
+
+## Exponential hazards model
+
+```{r, echo=FALSE}
+time <- 0:20
+
+data <- tibble(t = rep(time, 3),
+               lambda = c(rep(1, length(time)), 
+                          rep(2, length(time)), 
+                          rep(1/2, length(time))))
+
+data <- data %>%
+  mutate(hazard = lambda,
+         tot.hazard = lambda*t, 
+         survival = exp(-lambda*t))
+
+p1 <- data %>% 
+  ggplot(aes(x=t, y=hazard, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Hazard, h(t)', col=expression(lambda))
+
+p2 <- data %>% 
+  ggplot(aes(x=t, y=survival, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Survival, S(t)', col=expression(lambda))
+
+library(patchwork)
+p1+p2
+```
+
+---
+
+## Parametric survival models
+
+__Weibull model__:
+
+- More flexible, with two parameters
+
+--
+
+$$h(t) = \alpha\lambda^\alpha t^{\alpha-1}$$
+
+--
+
+$$H(t) = \int_0^t h(u)du = \int_0^t \lambda du = (\lambda t)^\alpha$$
+
+--
+
+$$S(t) = e^{{-(\lambda t)}^\alpha}$$
+
+---
+
+## Weibull hazards model with $\alpha=2$
+
+```{r, echo=FALSE}
+time <- 0:20
+
+data <- tibble(t = rep(time, 3),
+               lambda = c(rep(1, length(time)), 
+                          rep(2, length(time)), 
+                          rep(1/2, length(time))))
+
+data <- data %>%
+  mutate(hazard = 2*lambda^2*t,
+         tot.hazard = (lambda*t)^2, 
+         survival = exp(-(lambda*t)^2))
+
+p1 <- data %>% 
+  ggplot(aes(x=t, y=hazard, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Hazard, h(t)', col=expression(lambda))
+
+p2 <- data %>% 
+  ggplot(aes(x=t, y=survival, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Survival, S(t)', col=expression(lambda))
+
+library(patchwork)
+p1+p2
+```
+
+---
+
+## Weibull hazards model with $\alpha=1/2$
+
+```{r, echo=FALSE}
+time <- 0:20
+
+data <- tibble(t = rep(time, 3),
+               lambda = c(rep(1, length(time)), 
+                          rep(2, length(time)), 
+                          rep(1/2, length(time))))
+
+data <- data %>%
+  mutate(hazard = 0.5*lambda^0.5*t^(0.5-1),
+         tot.hazard = (lambda*t)^0.5, 
+         survival = exp(-(lambda*t)^0.5))
+
+p1 <- data %>% 
+  ggplot(aes(x=t, y=hazard, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Hazard, h(t)', col=expression(lambda))
+
+p2 <- data %>% 
+  ggplot(aes(x=t, y=survival, group=lambda)) +
+  geom_line(aes(col=as.factor(lambda))) + 
+  labs(x='Time, t', y='Survival, S(t)', col=expression(lambda))
+
+library(patchwork)
+p1+p2
+```
+
+---
+
+## Parametric survival models
+
+__Gamma model__:
+
+- Similar to the gamma distribution from probability theory...
+
+$$f(t) = \frac{1}{\Gamma (\beta) } \lambda ^\beta t^{\beta-1} e^{-\lambda t}$$
+
+--
+
+- The hazard and survival functions have no closed form
+
+---
+
+## Nonparametric survival curve estimation
+
+For human or animal survival data, it's difficult to know which parametric model to choose.
+
+- Sometimes we have a theory we wish to test, other times, we're agnostic to the _form_ of the model.
+
+--
+
+__Nonparametric estimators__ have significant advantages: we don't need to choose a model in advance.
+
+---
+
+## Kaplan-Meier estimator
+
+The __Kaplan-Meier estimator__ is the product over the failure times of the conditional probability of surviving to the _next_ failure time. 
+
+$$\hat{S}(t)=\Pi_{t_{i}\le t}(1-\hat{q}_{i})=\Pi_{t_{i}\le t}\left(1-\frac{d_{i}}{n_{i}}\right)$$
+
+- $n_i$ is the number of subjects at risk at time $t_i$
+- $d_i$ is the number of individuals who "fail" at time $t_i$
+
+---
+
+## Example: Tongue cancer
+
+The `tongue` data set contains data for 80 individuals in a study of tongue cancer. Variables include the type of tumor, time to death or on-study time, and whether or not the subject is alive.
+
+```{r}
+library(KMsurv)
+data(tongue)
+head(tongue)
+```
+
+---
+
+## Kaplan-Meier estimate
+
+```{r}
+tongue.km <- survfit(Surv(time, delta) ~ 1, data=tongue)
+tongue.km
+
+plot(tongue.km)
+```
+
+---
+
+## Kaplan-Meier estimate
+
+```{r}
+plot(tongue.km,
+     main='Kaplan-Meier estimate with 95% confidence bounds',
+     xlab='Time', ylab='Survival function')
+```
+
+---
+
+## Kaplan-Meier estimate
+
+```{r}
+tongue.type <- survfit(Surv(time, delta) ~ type, data=tongue)
+tongue.type
+```
+
+---
+
+## Kaplan-Meier estimate
+
+```{r}
+plot(tongue.type,
+     main='Kaplan-Meier estimate with 95% confidence bounds',
+     xlab='Time', ylab='Survival function')
+```
+
+---
+
+## Kaplan-Meier plots (improved)
+
+```{r}
+library(survminer)
+ggsurvplot(fit = tongue.km, 
+           xlab='Time', 
+           ylab='Estimated survival function')
+```
+
+---
+
+## Kaplan-Meier plots (improved)
+
+```{r}
+ggsurvplot(fit = tongue.type, 
+           xlab='Time', 
+           ylab='Estimated survival function')
+```
+
+---
+
+## Comparing groups
+
+Given two or more groups, is there a "statistical difference" between the survival times?
+
+$$H_0: h_1(t) = h_2(t) = ... h_K(t) \forall t$$
+
+--
+
+Calculate a vector $Z$ where the $k^{th}$ element is
+
+$$Z_{k}=\sum_{i=1}^{D}W(t_{i})\left[d_{ik}-n_{ik}\frac{d_{i}}{n_{i}}\right]$$
+
+--
+
+- $d_{ik}$ is the number of observed events from group $k$ at time $t_i$
+- $n_{ik}$ is the number of subjects in group $k$ at risk at time $t_i$
+- $d_i = \sum_{j=1}^K d_{ij}$
+- $n_i = \sum_{j=1}^K n_{ij}$
+
+--
+
+Let $\hat{\Sigma}$ be the covariance matrix. It turns out that...
+
+$$X^2 = Z'\hat{\Sigma}^{-1} Z\sim \chi^2_K$$
+
+---
+
+## Comparing groups
+
+```{r}
+survdiff(Surv(time, delta) ~ type, data=tongue)
+```
+
+---
+
+## Cox proportional hazards model
+
+The __Cox proportional hazards model__ fits survival data with explanatory variables $x_j$ to a hazard function of the form
+
+$$h(t\vert x)=h_{0}(t)exp(\beta_0+\beta_1x_1+\beta_2x_2+...)$$
+
+--
+
+- $\beta_j$ is a "regression coefficient"
+- $h_0(t)$ is the __baseline hazard__
+
+---
+
+## Cox proportional hazards model
+
+```{r}
+coxph.fit <- coxph(Surv(time, delta) ~ type, data=tongue)
+coxph.fit
+```
+
+---
+
+## Cox proportional hazards model
+
+```{r}
+coxph.fit
+
+survdiff(Surv(time, delta) ~ type, data=tongue)
+```
+
+--
+
+What do you notice?
+
+---
+
+## Hazard ratios
+
+The __hazard ratio__ represents the ratio of the hazards between two groups at any particular time. 
+
+- This is __not__ a risk. 
+
+--
+
+- __Instantaneous risk of occurrence__ of the event of interest in those who are still at risk for the event
+
+--
+
+- A HR < 1 indicates reduced hazard of death whereas a HR > 1 indicates an increased hazard of death.
+
+---
+
+## Hazard ratios
+
+```{r}
+coxph.fit
+```
+
+--
+
+- About 1.6 times as many people with Type 2 cancers are dying as Type 1 cancers.
+
+---
+
+## Plotting the Cox model
+
+```{r}
+ggforest(coxph.fit)
+```
+
+---
+
+
+## Plotting the hazard function
+
+```{r}
+ggsurvplot(fit = tongue.type, 
+           xlab='Time', 
+           ylab='Estimated cumulative hazards', 
+           fun='cumhaz')
+```
+
+---
+
+## Plotting the hazard function
+
+```{r}
+ggsurvplot(fit = tongue.type, 
+           xlab='Time', 
+           ylab='Estimated cumulative hazards', 
+           fun='cumhaz',
+           pval=TRUE, conf.int=TRUE, 
+           risk.table=TRUE)
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+Breastfeeding is believed to have numerous health benefits for both the infant and the mother, however it is a difficult and time-consuming experience. Researchers collected data from 927 mothers to better understand factors that affect the duration of breastfeeding.
+
+```{r}
+data(bfeed)
+names(bfeed)
+
+bfeed <- bfeed %>%
+  mutate(race.cat = ifelse(race==1, 'White', 
+                           ifelse(race==2, 'Black', 'Other')))
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r, echo=FALSE}
+bfeed %>% ggplot(aes(x=duration)) + 
+  geom_histogram() + 
+  labs(x='Duration (weeks)')
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r}
+bfeed.km <- survfit(Surv(duration, delta) ~ 1, data=bfeed)
+
+ggsurvplot(bfeed.km, xlab='Time (weeks)', ylab='Estimated survival function')
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+Possible explanatory variables:
+
+- Mother's race (white, black, other)
+- Mother's poverty status (1 = yes)
+- Mother smoked at birth (1 = yes)
+- Mother used alcohol at birth (1 = yes)
+- Age of mother at birth
+- Year of birth
+- Education level of mother
+- Prenatal care
+
+---
+
+## Example: Duration of breastfeeding
+
+Possible explanatory variables:
+
+- Mother's race (white, black, other)
+- __Mother's poverty status (1 = yes)__
+- Mother smoked at birth (1 = yes)
+- Mother used alcohol at birth (1 = yes)
+- Age of mother at birth
+- Year of birth
+- Education level of mother
+- Prenatal care
+
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r, echo=FALSE}
+bfeed %>% ggplot(aes(x=duration)) + 
+  geom_histogram(aes(fill=as.factor(poverty))) + 
+  facet_wrap(~poverty) + 
+  labs(x='Duration (weeks)', fill='Poverty')
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r}
+bfeed.pov <- survfit(Surv(duration, delta) ~ poverty, data=bfeed)
+
+ggsurvplot(bfeed.pov, xlab='Time (weeks)', ylab='Estimated survival function', conf.int=TRUE)
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r}
+coxph.pov <- coxph(Surv(duration, delta) ~ poverty, data=bfeed)
+coxph.pov
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r}
+coxph.all <- coxph(Surv(duration, delta) ~ race.cat + 
+                     poverty + smoke + alcohol + agemth + 
+                     ybirth + yschool + pc3mth, data=bfeed)
+
+coxph.all
+```
+
+---
+
+## Example: Duration of breastfeeding
+
+```{r}
+ggforest(coxph.all)
+```
